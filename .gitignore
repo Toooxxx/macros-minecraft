@@ -1,0 +1,23 @@
+# Seuls les fichiers du logiciel partent sur GitHub : pas de reglages, d'historique,
+# de journaux, d'images ni d'anciennes copies (*.avant-*).
+/*
+!/.gitignore
+!/version.txt
+!/Lancer.bat
+!/LISEZ-MOI.txt
+!/Ferme-canne.ps1
+!/mise-a-jour.ps1
+!/canne-etage.ps1
+!/autoclic.ps1
+!/peche.ps1
+!/verification.ps1
+!/lecture-chat.cs
+!/police.txt
+!/police-chat.txt
+!/departs-etages.txt
+!/menu/
+/menu/*
+!/menu/FermeCanne.cs
+!/outils/
+!/.gitattributes
+!/depot.txt

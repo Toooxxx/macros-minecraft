@@ -1,0 +1,3 @@
+1
+Mise a jour automatique depuis GitHub.
+Vente : le compteur d'objets est toujours lu a sa place habituelle en premier.

@@ -1,0 +1,63 @@
+MACROS MINECRAFT : ferme a canne, minage, peche
+================================================
+
+1. INSTALLATION (rien a installer)
+---------------------------------
+- AVANT d'extraire : clic droit sur le zip > Proprietes > cocher "Debloquer" > OK.
+  (Sinon Windows bloque les scripts venus d'Internet ou de Discord.)
+- Extraire le dossier ou tu veux.
+- Lancer : double-clic sur "Lancer.bat". Le menu s'ouvre.
+  Si Windows affiche un avertissement : "Informations complementaires" > "Executer quand meme".
+
+2. REGLAGES DU JEU (indispensables)
+-----------------------------------
+- Lunar Client. Taille de l'interface : n'importe laquelle de 1 a 4 (le script la trouve sur la barre
+  d'objets ; le journal affiche "Taille de l'interface du jeu : ..."). Jeu en francais ou en anglais.
+- Coordonnees (module de Lunar) affichees EN BLANC dans le coin EN HAUT A GAUCHE.
+  Peu importe la place exacte ou la taille : le script les trouve tout seul au demarrage
+  (le journal affiche "Coordonnees trouvees en haut a gauche").
+- Compteur d'objets (module de Lunar) en blanc, dans le coin EN BAS A DROITE (pour la vente
+  automatique). La aussi, le script le trouve tout seul.
+- Peche : sous-titres actives (Options > Musique et sons > Afficher les sous-titres).
+
+3. TOUCHES (modifiables dans Options)
+-------------------------------------
+- F7 : demarrer dans le jeu, puis pause / reprise.
+- F8 : arret immediat (tout est relache). Le bouton "Arreter" du menu fait pareil.
+
+4. FERME A CANNE
+----------------
+- Une seule fois : fais /sethome s au point de depart de la ferme (19 107 -80).
+  Le script tape /home s entre deux tours et verifie qu'il arrive bien la.
+- Dial (vente) au slot 1. Dans le jeu : colle au mur de depart, en visant les cannes, puis F7.
+- La ferme doit rester AU PREMIER PLAN (elle tourne la camera, impossible au second plan).
+
+5. MINAGE ET PECHE
+------------------
+- Minage : bouton gauche ou droit, clics ou clic tenu, vente au Dial (slot 1) en option,
+  arret automatique si tu es teleporte (en option).
+- Peche : canne en main au slot choisi, ligne PAS lancee, puis F7. Le script lance, joue le
+  mini-jeu, lit l'espece et les gains, ramene les poissons vanilla, et relance.
+- Option "Au second plan" (pages Minage et Peche) : tu peux faire autre chose sur ton ecran
+  principal pendant que le jeu tourne sur un autre ecran.
+    * Dans le jeu : F3 + P (sinon le jeu se met en pause des qu'il perd la main).
+    * Le jeu doit rester VISIBLE (ni reduit, ni cache par une autre fenetre) : le script lit l'ecran.
+    * Si Lunar baisse les images par seconde au second plan, desactive cette limite dans ses reglages.
+
+6. VERIFICATION AFK
+-------------------
+- Le script reconnait le message "AFK Verification" au centre de l'ecran.
+- Option "Repondre seul" (Options) : DESACTIVEE par defaut. Desactivee, il bipe 3 fois et
+  c'est a toi de repondre. Activee, il ecrit lui-meme le nombre demande dans le chat.
+- A part /home s (ferme) et ce nombre (si l'option est activee), le script n'ecrit RIEN dans le chat.
+
+7. BON A SAVOIR
+---------------
+- Statistiques (tuile en haut a droite) : gains, argent par heure, especes de poissons...
+  Tout reste sur ton PC (historique.csv, dossier diagnostics).
+- Si quelque chose ne marche pas, le journal en bas du menu dit pourquoi, et le dossier
+  "diagnostics" garde des images de ce que le script a vu.
+  Envoie ces images (et une copie du journal) a la personne qui t'a donne le dossier.
+- Le jeu doit etre EN FENETRE (ou fenetre sans bordure), pas en vrai plein ecran :
+  en plein ecran, Windows donne des images noires et le script ne voit rien.
+- Utiliser des macros peut etre interdit par les regles du serveur : c'est a tes risques.
