@@ -51,7 +51,15 @@ MACROS MINECRAFT : ferme a canne, minage, peche
   c'est a toi de repondre. Activee, il ecrit lui-meme le nombre demande dans le chat.
 - A part /home s (ferme) et ce nombre (si l'option est activee), le script n'ecrit RIEN dans le chat.
 
-7. BON A SAVOIR
+7. MISES A JOUR
+---------------
+- A l'ouverture du menu, le logiciel regarde s'il existe une nouvelle version (sur GitHub).
+  Si oui, il affiche les nouveautes et demande s'il faut l'installer.
+- Tes reglages, tes statistiques et tes diagnostics sont conserves.
+  L'ancienne version est gardee dans le dossier "ancienne-version".
+- Sans Internet, le menu s'ouvre normalement.
+
+8. BON A SAVOIR
 ---------------
 - Statistiques (tuile en haut a droite) : gains, argent par heure, especes de poissons...
   Tout reste sur ton PC (historique.csv, dossier diagnostics).
