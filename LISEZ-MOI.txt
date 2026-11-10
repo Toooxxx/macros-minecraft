@@ -68,8 +68,9 @@ Pasteques et citrouilles
 - La macro avance en maintenant le clic gauche. Au bout du tunnel tu tombes de Y -3 a Y -5 : elle
   relache tout, attend (20 secondes par defaut), tape /home mine1 ou /home mine2, verifie que tu es au depart
   et repart.
-- Onglet Avance : attente au fond, nombre de tours (0 = a l'infini, sinon arret une fois revenu au
-  depart), limites X de la mine et hauteur du tunnel. Les departs -140 et 128 restent fixes.
+- Options : attente au fond (20 secondes par defaut) et nombre de tours (0 = a l'infini, sinon arret
+  une fois revenu au depart).
+- Onglet Avance : limites X de la mine et hauteur du tunnel. Les departs -140 et 128 restent fixes.
 - Elle s'arrete seule, sans rien taper, si tu sors de la mine, si tu recules ou si tu n'avances
   plus pendant 30 secondes.
 - Le regard vient du home : si tu marches dans la mauvaise direction, repose le home.

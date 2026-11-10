@@ -882,17 +882,18 @@ public class FermeCanne : Form {
     int ymi = 8;
     miMine = Liste(smi[0], "Mine", ref ymi, new[] { "Mine 1", "Mine 2" });
     miMine.SelectedIndexChanged += (s, e) => Sauver();
+    miAttente = Num(smi[0], "Attente au fond (s)", ref ymi, 0, 600, 20, 5);
+    miTours = Num(smi[0], "Tours (0 = à l'infini)", ref ymi, 0, 9999, 0, 1);
+    Aide(smi[0], "Après le dernier tour, le script s'arrête une fois revenu au départ.", ref ymi);
     Aide(smi[0], "Mine 1 : départ en X -140, vers l'est (regard -90). Mine 2 : départ en X 128, vers l'ouest (regard 90). Regard horizontal (0).", ref ymi);
     Aide(smi[0], "Dans le jeu : F3 fermé, coordonnées affichées en haut à gauche, dans le tunnel, à la hauteur réglée dans Avancé (Y -3 par défaut), pioche 3x3 en main, puis la touche pause (F7 par défaut). Au bout, après la chute, le script attend puis tape /home mine1 ou /home mine2 : pose ces homes en regardant le tunnel.", ref ymi);
     int yma = 8;
-    miAttente = Num(smi[1], "Attente au fond (s)", ref yma, 0, 600, 20, 5);
-    miTours = Num(smi[1], "Tours (0 = à l'infini)", ref yma, 0, 9999, 0, 1);
     miXMin = Num(smi[1], "Limite X minimum", ref yma, -1000000, 1000000, -145, 1);
     miXMax = Num(smi[1], "Limite X maximum", ref yma, -1000000, 1000000, 133, 1);
     miY = Num(smi[1], "Hauteur du tunnel (Y)", ref yma, -64, 320, -3, 1);
     foreach (var n in new[] { miAttente, miTours, miXMin, miXMax, miY }) n.ValueChanged += (s, e) => Sauver();
     Aide(smi[1], "Les départs restent fixes : X -140 pour la Mine 1, X 128 pour la Mine 2.", ref yma);
-    Aide(smi[1], "Le script s'arrête si tu sors des limites X, ou si tu n'es plus autour de la hauteur du tunnel. Après le dernier tour, il s'arrête une fois revenu au départ.", ref yma);
+    Aide(smi[1], "Le script s'arrête si tu sors des limites X, ou si tu n'es plus autour de la hauteur du tunnel.", ref yma);
     Securite(smi[2], out miStopTP, out miTPBlocs);
 
     foreach (var p in new[] { pageCanne, pageClic, pageTheme, pageStats, pagePeche, pageRecolte, pageCulture, pageMine }) Controls.Add(p);

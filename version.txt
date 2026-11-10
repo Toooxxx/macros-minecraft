@@ -1,2 +1,2 @@
-3
-Mine 3x3 : onglet Avance avec attente au fond, nombre de tours, limites X et hauteur du tunnel.
+4
+Mine 3x3 : attente au fond et nombre de tours dans l'onglet principal, limites X et Y dans Avance.
