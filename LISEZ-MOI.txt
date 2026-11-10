@@ -17,7 +17,7 @@ MACROS MINECRAFT : canne, pasteques, citrouilles, mine 3x3, peche, autoclick
 
 2. REGLAGES DU JEU (indispensables)
 -----------------------------------
-- Lunar Client. Taille de l'interface : n'importe laquelle de 1 a 4 (le script la trouve sur la barre
+- Lunar Client. Taille de l'interface : n'importe laquelle de 1 a 12, ecrans 4K compris (le script la trouve sur la barre
   d'objets ; le journal affiche "Taille de l'interface du jeu : ..."). Jeu en francais ou en anglais.
 - Coordonnees (module de Lunar) affichees EN BLANC dans le coin EN HAUT A GAUCHE.
   Peu importe la place exacte ou la taille : le script les trouve tout seul au demarrage.
