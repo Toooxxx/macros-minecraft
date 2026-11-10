@@ -64,10 +64,12 @@ Pasteques et citrouilles
 6. MINAGE (mine 3x3)
 --------------------
 - Choisis Mine 1 (depart X -140, vers l'est) ou Mine 2 (depart X 128, vers l'ouest).
-- F3 ferme, coordonnees affichees, pioche 3x3 en main, dans le tunnel (Y -3 obligatoire), puis F7.
+- F3 ferme, coordonnees affichees, pioche 3x3 en main, dans le tunnel (a la hauteur reglee, Y -3 par defaut), puis F7.
 - La macro avance en maintenant le clic gauche. Au bout du tunnel tu tombes de Y -3 a Y -5 : elle
-  relache tout, attend 20 secondes, tape /home mine1 ou /home mine2, verifie que tu es au depart
+  relache tout, attend (20 secondes par defaut), tape /home mine1 ou /home mine2, verifie que tu es au depart
   et repart.
+- Onglet Avance : attente au fond, nombre de tours (0 = a l'infini, sinon arret une fois revenu au
+  depart), limites X de la mine et hauteur du tunnel. Les departs -140 et 128 restent fixes.
 - Elle s'arrete seule, sans rien taper, si tu sors de la mine, si tu recules ou si tu n'avances
   plus pendant 30 secondes.
 - Le regard vient du home : si tu marches dans la mauvaise direction, repose le home.

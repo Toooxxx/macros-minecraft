@@ -648,7 +648,7 @@ public class FermeCanne : Form {
   int mode;   // script lance : 0 ferme, 1 autoclick (autoclic.ps1), 4 peche, 5 pasteques, 6 citrouilles (recolte.ps1 ; meme numero que sa tuile)
   bool modeClic { get { return mode == 1 || mode == 8; } }   // la mine 3x3 passe par autoclic.ps1
   bool modeMine { get { return mode == 8; } }
-  Segments miMine; Interrupteur miStopTP; Nombre miTPBlocs;
+  Segments miMine; Interrupteur miStopTP; Nombre miTPBlocs, miAttente, miTours, miXMin, miXMax, miY;
   bool modePeche { get { return mode == 4; } }
   bool modeRecolte { get { return mode == 5 || mode == 6; } }
   CarteRonde pageCulture; List<BoutonRond> boutonsCulture = new List<BoutonRond>();
@@ -878,13 +878,22 @@ public class FermeCanne : Form {
 
     // Page Minage : la mine 3x3 (autoclic.ps1 -Mine 1 ou 2).
     pageMine = Page("Mine 3x3");
-    var smi = Sections(pageMine, "Mine 3x3", "Sécurité");
+    var smi = Sections(pageMine, "Mine 3x3", "Avancé", "Sécurité");
     int ymi = 8;
     miMine = Liste(smi[0], "Mine", ref ymi, new[] { "Mine 1", "Mine 2" });
     miMine.SelectedIndexChanged += (s, e) => Sauver();
     Aide(smi[0], "Mine 1 : départ en X -140, vers l'est (regard -90). Mine 2 : départ en X 128, vers l'ouest (regard 90). Regard horizontal (0).", ref ymi);
-    Aide(smi[0], "Dans le jeu : F3 fermé, coordonnées affichées en haut à gauche, dans le tunnel (Y -3), pioche 3x3 en main, puis la touche pause (F7 par défaut). Au bout, après la chute, le script attend 20 s puis tape /home mine1 ou /home mine2 : pose ces homes en regardant le tunnel.", ref ymi);
-    Securite(smi[1], out miStopTP, out miTPBlocs);
+    Aide(smi[0], "Dans le jeu : F3 fermé, coordonnées affichées en haut à gauche, dans le tunnel, à la hauteur réglée dans Avancé (Y -3 par défaut), pioche 3x3 en main, puis la touche pause (F7 par défaut). Au bout, après la chute, le script attend puis tape /home mine1 ou /home mine2 : pose ces homes en regardant le tunnel.", ref ymi);
+    int yma = 8;
+    miAttente = Num(smi[1], "Attente au fond (s)", ref yma, 0, 600, 20, 5);
+    miTours = Num(smi[1], "Tours (0 = à l'infini)", ref yma, 0, 9999, 0, 1);
+    miXMin = Num(smi[1], "Limite X minimum", ref yma, -1000000, 1000000, -145, 1);
+    miXMax = Num(smi[1], "Limite X maximum", ref yma, -1000000, 1000000, 133, 1);
+    miY = Num(smi[1], "Hauteur du tunnel (Y)", ref yma, -64, 320, -3, 1);
+    foreach (var n in new[] { miAttente, miTours, miXMin, miXMax, miY }) n.ValueChanged += (s, e) => Sauver();
+    Aide(smi[1], "Les départs restent fixes : X -140 pour la Mine 1, X 128 pour la Mine 2.", ref yma);
+    Aide(smi[1], "Le script s'arrête si tu sors des limites X, ou si tu n'es plus autour de la hauteur du tunnel. Après le dernier tour, il s'arrête une fois revenu au départ.", ref yma);
+    Securite(smi[2], out miStopTP, out miTPBlocs);
 
     foreach (var p in new[] { pageCanne, pageClic, pageTheme, pageStats, pagePeche, pageRecolte, pageCulture, pageMine }) Controls.Add(p);
 
@@ -1604,6 +1613,7 @@ public class FermeCanne : Form {
   // ------------------------------ Lancement ------------------------------
   void Demarrer() {
     if (EnCours()) return;
+    if (page == 8) { int dep = miMine.SelectedIndex == 0 ? -140 : 128; if (miXMin.Value > dep || miXMax.Value < dep) { Ecrire("Le départ de cette mine (X " + dep + ") est hors des limites X : corrige-les dans l'onglet Avancé.", Jaune); return; } }
     if (page == 4 && pcVente.Checked && pcVenteSlot.Value == pcSlot.Value) { Ecrire("Le dial et la canne sont réglés sur le même slot : change le slot du dial dans l'onglet Vente.", Jaune); return; }
     if (page == 2 || page == 3 || page == 7) { Ecrire("Choisis d'abord une culture, l'Autoclick ou la Pêche avant de démarrer.", Jaune); return; }
     mode = page;
@@ -1630,7 +1640,7 @@ public class FermeCanne : Form {
       ? string.Format("-NoProfile -ExecutionPolicy Bypass -File \"{0}\" -AnticipMs {1} -Tolerance {2} -AttenteMs {3} -RelanceS {4} -PoissonsMax {5} -SlotCanne {6}",
           ScriptPeche, (int)pcAnticip.Value, (int)pcTol.Value, (int)pcAttente.Value, (int)pcRelance.Value, (int)pcMax.Value, (int)pcSlot.Value)
       : modeMine
-      ? string.Format("-NoProfile -ExecutionPolicy Bypass -File \"{0}\" -Mine {1}", ScriptClic, miMine.SelectedIndex + 1)
+      ? string.Format("-NoProfile -ExecutionPolicy Bypass -File \"{0}\" -Mine {1} -MineAttenteS {2} -MineTours {3} -MineXMin {4} -MineXMax {5} -MineY {6}", ScriptClic, miMine.SelectedIndex + 1, (int)miAttente.Value, (int)miTours.Value, (int)miXMin.Value, (int)miXMax.Value, (int)miY.Value)
       : modeClic
       ? string.Format("-NoProfile -ExecutionPolicy Bypass -File \"{0}\" -Bouton {1} -Mode {2} -IntervalleMs {3} -DureeMaxS {4} -ClicsMax {5} -VenteSeuil {6} -VenteMs {7} -SlotRetour {8}",
           ScriptClic, acBouton.SelectedIndex == 0 ? "gauche" : "droit", acMode.SelectedIndex == 0 ? "clics" : "maintien", (int)acIntervalle.Value,
@@ -1766,7 +1776,7 @@ public class FermeCanne : Form {
     // pendant qu'une culture tourne, la tuile Culture reste active pour revoir ses reglages ; les boutons des fermes sont grises
     for (int k = 0; k < tuiles.Count; k++) tuiles[k].Enabled = on || k == mode || k == 2 || k == 3 || (k == 7 && (mode == 0 || mode == 5 || mode == 6));
     foreach (var b in boutonsCulture) b.Enabled = on;
-    foreach (Control c in new Control[] { miMine, miStopTP, pcAnticip, pcTol, pcAttente, pcRelance, pcMax, pcSlot, pcSecondPlan, acSecondPlan, cnStopTP, rcStopTP, pcStopTP, pcVente, antiLag, antiLagS, voteSlots, rcEtage, rcRangees, rcTours, rcRegard }) c.Enabled = on;
+    foreach (Control c in new Control[] { miMine, miStopTP, miAttente, miTours, miXMin, miXMax, miY, pcAnticip, pcTol, pcAttente, pcRelance, pcMax, pcSlot, pcSecondPlan, acSecondPlan, cnStopTP, rcStopTP, pcStopTP, pcVente, antiLag, antiLagS, voteSlots, rcEtage, rcRangees, rcTours, rcRegard }) c.Enabled = on;
     if (on) { seuil.Enabled = venteMs.Enabled = voteSlots.Enabled = venteActive.Checked; MajCps(); miTPBlocs.Enabled = miStopTP.Checked; acTPBlocs.Enabled = acStopTP.Checked; cnTPBlocs.Enabled = cnStopTP.Checked; rcTPBlocs.Enabled = rcStopTP.Checked; pcTPBlocs.Enabled = pcStopTP.Checked; pcVenteMin.Enabled = pcVenteSlot.Enabled = pcVente.Checked; antiLagS.Enabled = antiLag.Checked; }
     else miTPBlocs.Enabled = cnTPBlocs.Enabled = rcTPBlocs.Enabled = pcTPBlocs.Enabled = pcVenteMin.Enabled = pcVenteSlot.Enabled = false;
     MajReprise();
@@ -1785,7 +1795,7 @@ public class FermeCanne : Form {
         "acClicsMax=" + acClicsMax.Value, "acStopTP=" + (acStopTP.Checked ? 1 : 0), "acTPBlocs=" + acTPBlocs.Value, "acVente=" + (acVente.Checked ? 1 : 0), "acSeuil=" + acSeuil.Value, "acVenteMs=" + acVenteMs.Value, "acSlot=" + acSlot.Value, "acVoteSlots=" + acVoteSlots.Value,
         "pcAnticip2=" + pcAnticip.Value, "pcSecondPlan=" + (pcSecondPlan.Checked ? 1 : 0), "acSecondPlan=" + (acSecondPlan.Checked ? 1 : 0), "pcTol2=" + pcTol.Value, "pcAttente=" + pcAttente.Value, "pcRelance=" + pcRelance.Value, "pcMax=" + pcMax.Value, "pcSlot=" + pcSlot.Value,
         "rcRangeeDepart=" + rcRangees.Value, "rcTours=" + rcTours.Value, "rcRegard=" + (rcRegard.Checked ? 1 : 0), "rcEtage=" + rcEtage.Value,
-        "miMine=" + miMine.SelectedIndex, "miStopTP=" + (miStopTP.Checked ? 1 : 0), "miTPBlocs=" + miTPBlocs.Value,
+        "miMine=" + miMine.SelectedIndex, "miStopTP=" + (miStopTP.Checked ? 1 : 0), "miTPBlocs=" + miTPBlocs.Value, "miAttente=" + miAttente.Value, "miTours=" + miTours.Value, "miXMin=" + miXMin.Value, "miXMax=" + miXMax.Value, "miY=" + miY.Value,
         "pcVente=" + (pcVente.Checked ? 1 : 0), "pcVenteMin=" + pcVenteMin.Value, "pcVenteSlot=" + pcVenteSlot.Value,
         "cnStopTP=" + (cnStopTP.Checked ? 1 : 0), "cnTPBlocs=" + cnTPBlocs.Value, "rcStopTP=" + (rcStopTP.Checked ? 1 : 0), "rcTPBlocs=" + rcTPBlocs.Value, "pcStopTP=" + (pcStopTP.Checked ? 1 : 0), "pcTPBlocs=" + pcTPBlocs.Value,
         "ecranVerifie=" + (ecranVerifie ? 1 : 0), "onglet=" + page, "stats=" + statsFiltre.SelectedIndex, "reprise=" + reprise, "pause=" + tPause.Vk, "arret=" + tArret.Vk, "mini=" + (miniActive.Checked ? 1 : 0), "verif=" + (verifActive.Checked ? 1 : 0),
@@ -1806,6 +1816,11 @@ public class FermeCanne : Form {
       if (d.TryGetValue("miMine", out x)) miMine.SelectedIndex = Math.Max(0, Math.Min(1, x));
       if (d.TryGetValue("miStopTP", out x)) miStopTP.Checked = x == 1;
       if (d.TryGetValue("miTPBlocs", out x)) miTPBlocs.Value = Math.Max(1, Math.Min(10, x));
+      if (d.TryGetValue("miAttente", out x)) miAttente.Value = x;
+      if (d.TryGetValue("miTours", out x)) miTours.Value = x;
+      if (d.TryGetValue("miXMin", out x)) miXMin.Value = x;
+      if (d.TryGetValue("miXMax", out x)) miXMax.Value = x;
+      if (d.TryGetValue("miY", out x)) miY.Value = x;
       if (d.TryGetValue("pcVente", out x)) pcVente.Checked = x == 1;
       if (d.TryGetValue("pcVenteMin", out x)) pcVenteMin.Value = Math.Max(1, Math.Min(240, x));
       if (d.TryGetValue("pcVenteSlot", out x)) pcVenteSlot.Value = Math.Max(1, Math.Min(9, x));

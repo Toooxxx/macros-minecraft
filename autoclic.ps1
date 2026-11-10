@@ -27,16 +27,19 @@ param(
   [string]$HomeMine = 'm',         # nom du home au depart de la mine (/sethome m fait en regardant le tunnel)
   [int]$MurS = 5,                  # secondes sans avancer d'un bloc = mur atteint
   [int]$Mine = 0,                  # mine 3x3 (onglet Minage) : 1 = part de X -140 vers l'est, 2 = part de X 128 vers l'ouest ; 0 = pas de mine
-  [int]$MineY = -3,                # fixe : hauteur du tunnel ; au bout, le joueur tombe a -5
-  [int]$MineAttenteS = 20,         # fixe : attente au fond de la chute, avant le /home
+  [int]$MineY = -3,                # hauteur du tunnel (onglet Avance) ; au bout, le joueur tombe plus bas
+  [int]$MineAttenteS = 20,         # attente au fond de la chute, avant le /home (onglet Avance)
   [int]$MineBloqueS = 30,          # secondes sans avancer dans le tunnel = bloque, arret
+  [int]$MineTours = 0,             # 0 = a l'infini ; sinon arret au depart apres ce nombre de tours (onglet Avance)
+  [int]$MineXMin = -145,           # limites de la mine sur l'axe X (onglet Avance) : au-dela, arret
+  [int]$MineXMax = 133,
   [int]$TouchePause = 0x76,        # F7 par defaut (code de touche virtuelle Windows)
   [int]$ToucheArret = 0x77         # F8 par defaut
 )
 
 $Dossier = Split-Path -Parent $MyInvocation.MyCommand.Path
 # Mine 3x3 : clic gauche maintenu en avancant. /home mine1 et /home mine2 autorises par l'utilisateur le 10/11/2026.
-$MineDepartX = 0; $MineSens = 1; $MineXMin = -145; $MineXMax = 133
+$MineDepartX = 0; $MineSens = 1
 if ($Mine -gt 0) {
   $Avancer = 1; $Mode = 'maintien'; $Bouton = 'gauche'; $HomeMine = "mine$Mine"
   if ($Mine -eq 1) { $MineDepartX = -140; $MineSens = 1 } else { $MineDepartX = 128; $MineSens = -1 }
@@ -436,6 +439,7 @@ function Retour-Mine {
   if ($null -eq $p) { Write-Host "Coordonnees illisibles apres /home : arret." -ForegroundColor Red; $script:Arret = $true; return }
   if ($d -gt 2) { Write-Host ("Pas revenu au depart apres /home {0} (X {1} Y {2} Z {3}, depart {4} {5} {6}) : arret." -f $HomeMine, $p[0], $p[1], $p[2], $script:DepartMine[0], $script:DepartMine[1], $script:DepartMine[2]) -ForegroundColor Red; $script:Arret = $true; return }
   $script:Retours++
+  if ($Mine -gt 0 -and $MineTours -gt 0 -and $script:Retours -ge $MineTours) { Write-Host ("Mine : {0} tour(s) faits, de retour au depart." -f $script:Retours) -ForegroundColor Green; $script:Arret = $true; return }
   Write-Host ("Au depart de la mine ({0} retour{1}). On repart." -f $script:Retours, $(if ($script:Retours -gt 1) { 's' } else { '' })) -ForegroundColor Green
   $script:PosRef = $null; $script:Progres = $null                          # le saut du /home n'est pas une teleportation suspecte
   Start-Sleep -Milliseconds (Get-Random -Minimum 300 -Maximum 700)
@@ -523,7 +527,7 @@ function Autoclick {
   if ($Mine -gt 0) {
     $p = Lire-Coord
     if ($null -eq $p) { Write-Host "Mine : coordonnees illisibles en haut a gauche (affiche-les dans Lunar), arret." -ForegroundColor Red; return }
-    if ($p[1] -ne $MineY -or $p[0] -lt $MineXMin -or $p[0] -gt $MineXMax) { Write-Host ("Mine : place-toi dans le tunnel (Y {0}, X entre -140 et 128) ; lu X {1} Y {2}, arret." -f $MineY, $p[0], $p[1]) -ForegroundColor Red; return }
+    if ($p[1] -ne $MineY -or $p[0] -lt $MineXMin -or $p[0] -gt $MineXMax) { Write-Host ("Mine : place-toi dans le tunnel (Y {0}, X entre {3} et {4}) ; lu X {1} Y {2}, arret." -f $MineY, $p[0], $p[1], $MineXMin, $MineXMax) -ForegroundColor Red; return }
     $script:DepartMine = @($MineDepartX, $MineY, $p[2])
     Write-Host ("Mine {0} : depart X {1}, retour par /home {2} apres {3} s au fond." -f $Mine, $MineDepartX, $HomeMine, $MineAttenteS)
   }
