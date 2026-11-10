@@ -118,7 +118,8 @@ Pasteques et citrouilles
 11. MISES A JOUR
 ----------------
 - A l'ouverture du menu, le logiciel regarde s'il existe une nouvelle version (sur GitHub).
-  Si oui, il affiche les nouveautes et demande s'il faut l'installer.
+  Si oui, une fenetre apparait au milieu du menu avec les nouveautes : Oui installe puis redemarre le
+  logiciel, Non ferme la fenetre (elle reviendra a la prochaine ouverture).
 - Tes reglages, tes statistiques et tes diagnostics sont conserves.
   L'ancienne version est gardee dans le dossier "ancienne-version".
 - Sans Internet, le menu s'ouvre normalement.

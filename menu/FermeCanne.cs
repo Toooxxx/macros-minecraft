@@ -964,6 +964,7 @@ public class FermeCanne : Form {
     FormClosing += (s, e) => { Sauver(); if (proc != null && !proc.HasExited) Arreter(); CacherMini(); if (procTuto != null && !procTuto.HasExited) { procTuto.EnableRaisingEvents = false; try { procTuto.Kill(); } catch { } } };
     HandleCreated += (s, e) => Coins();
     if (!ecranVerifie) MontrerTuto();
+    Shown += (s, e) => { if (ecranVerifie) ChercherMaj(); };   // le menu s'ouvre d'abord ; la recherche ne le ralentit pas
   }
 
   // ------------------------------ Fenetre sans bordure ------------------------------
@@ -1350,12 +1351,102 @@ public class FermeCanne : Form {
       : "Non gérée : " + v.Replace("forward", "avancer").Replace("back", "reculer").Replace("left", "gauche").Replace("right", "droite");
     EtapeTuto(k, echec, Rouge);
   }
+  // ------------------------------ Mise a jour ------------------------------
+  // Le menu s'ouvre, puis regarde sur GitHub s'il existe une version plus recente (sans Internet : rien ne se passe).
+  // Si oui : popup au milieu du menu. Oui = mise-a-jour.ps1 -Installer, puis redemarrage. Non = le popup se retire.
+  Panel voileMaj; Image fondMaj; BoutonRond bMajOui, bMajNon; Label lMajInfo;
+  static int NumeroVersion(string t) { var m = Regex.Match(t ?? "", @"^\s*(\d+)"); return m.Success ? int.Parse(m.Groups[1].Value) : 0; }
+  void ChercherMaj() {
+    var t = new System.Threading.Thread(() => {
+      try {
+        string depot = File.ReadAllLines(Path.Combine(dossier, "depot.txt"))[0].Trim();
+        if (!Regex.IsMatch(depot, @"^[\w.-]+/[\w.-]+$")) return;
+        System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
+        var req = System.Net.WebRequest.Create("https://raw.githubusercontent.com/" + depot + "/main/version.txt?t=" + Environment.TickCount);
+        req.Timeout = 4000;
+        string texte;
+        using (var rep = req.GetResponse()) using (var sr = new StreamReader(rep.GetResponseStream())) texte = sr.ReadToEnd();
+        string fv = Path.Combine(dossier, "version.txt");
+        int distante = NumeroVersion(texte), locale = NumeroVersion(File.Exists(fv) ? File.ReadAllText(fv) : "");
+        if (distante <= locale) return;
+        var lignes = new List<string>();
+        foreach (var l in Regex.Split(texte, "\r?\n")) if (l.Trim() != "") lignes.Add("•  " + l.Trim());
+        if (lignes.Count > 0) lignes.RemoveAt(0);   // la premiere ligne est le numero
+        BeginInvoke((Action)(() => AfficherMaj(distante, locale, string.Join("\n", lignes))));
+      } catch { }
+    });
+    t.IsBackground = true; t.Start();
+  }
+  void AfficherMaj(int distante, int locale, string notes) {
+    if (voileMaj != null || EnCours() || tuto != null) return;
+    // fond : le menu assombri ; la barre de titre reste libre (deplacer, reduire, fermer)
+    int w = ClientSize.Width, h = ClientSize.Height - 56;
+    using (var tout = new Bitmap(ClientSize.Width, ClientSize.Height)) {
+      DrawToBitmap(tout, ClientRectangle);
+      var b = new Bitmap(w, h);
+      using (var g = Graphics.FromImage(b)) {
+        g.DrawImage(tout, new Rectangle(0, 0, w, h), new Rectangle(0, 56, w, h), GraphicsUnit.Pixel);
+        using (var v = new SolidBrush(Color.FromArgb(165, 8, 8, 16))) g.FillRectangle(v, 0, 0, w, h);
+      }
+      fondMaj = b;
+    }
+    voileMaj = new Panel { Left = 0, Top = 56, Width = w, Height = h, BackgroundImage = fondMaj, BackgroundImageLayout = ImageLayout.None, BackColor = Th.Fond, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right };
+    const int L = 520, M = 32, LT = L - 2 * M;
+    var fNotes = new Font("Segoe UI", 10.5f);
+    if (notes == "") notes = "Améliorations du logiciel.";
+    int hn = TextRenderer.MeasureText(notes, fNotes, new Size(LT, 0), TextFormatFlags.WordBreak).Height + 16;
+    hn = Math.Min(hn, 260);
+    int hc = 118 + hn + 72 + 76;
+    var c = new CarteRonde { Width = L, Height = hc, Left = (w - L) / 2, Top = Math.Max(16, (h - hc) / 2), Remplissage = Th.Carte, Anchor = AnchorStyles.None };
+    c.Controls.Add(new Label { Text = "Mise à jour disponible", Left = M, Top = 26, Width = LT, Height = 40, Font = new Font("Segoe UI Semibold", 18f), ForeColor = Th.Texte, BackColor = Th.Carte });
+    c.Controls.Add(new Label { Text = locale > 0 ? "Version " + distante + "  ·  tu as la version " + locale : "Version " + distante, Left = M + 1, Top = 68, Width = LT, Height = 24, Font = new Font("Segoe UI", 10f), ForeColor = Th.Accent, BackColor = Th.Carte, Tag = "accent-texte" });
+    c.Controls.Add(new Label { Text = notes, Left = M + 1, Top = 102, Width = LT, Height = hn, Font = fNotes, ForeColor = Th.Texte, BackColor = Th.Carte });
+    lMajInfo = new Label { Text = "L'installer maintenant ? Tes réglages et tes statistiques sont conservés, et le logiciel redémarre tout seul.", Left = M + 1, Top = 116 + hn, Width = LT, Height = 56, Font = new Font("Segoe UI", 10f), ForeColor = Th.Discret, BackColor = Th.Carte };
+    c.Controls.Add(lMajInfo);
+    int yb = hc - 76, lb = (LT - 12) / 2;
+    bMajNon = new BoutonRond { Text = "Non", Left = M, Top = yb, Width = lb, Height = 50, Font = new Font("Segoe UI Semibold", 12f) };
+    bMajOui = new BoutonRond { Text = "Oui, installer", Principal = true, Left = M + lb + 12, Top = yb, Width = lb, Height = 50, Font = new Font("Segoe UI Semibold", 12f) };
+    bMajNon.Click += (s, e) => { if (bMajNon.Enabled) FermerPopupMaj(); };
+    bMajOui.Click += (s, e) => { if (bMajOui.Enabled) InstallerMaj(); };
+    c.Controls.Add(bMajNon); c.Controls.Add(bMajOui);
+    voileMaj.Controls.Add(c);
+    Controls.Add(voileMaj); voileMaj.BringToFront();
+  }
+  void FermerPopupMaj() {
+    if (voileMaj == null) return;
+    Controls.Remove(voileMaj); voileMaj.Dispose(); voileMaj = null;
+    if (fondMaj != null) { fondMaj.Dispose(); fondMaj = null; }
+  }
+  void InstallerMaj() {
+    if (EnCours()) { lMajInfo.Text = "Arrête d'abord le script, puis réessaie."; lMajInfo.ForeColor = Jaune; return; }
+    bMajOui.Enabled = bMajNon.Enabled = false; bMajOui.Text = "Installation…";
+    lMajInfo.Text = "Téléchargement et installation en cours, ne ferme pas le logiciel."; lMajInfo.ForeColor = Th.Discret;
+    string scriptMaj = Path.Combine(dossier, "mise-a-jour.ps1"), dos = dossier.TrimEnd('\\');
+    var t = new System.Threading.Thread(() => {
+      int code = -1; string sortie = "";
+      try {
+        var psi = new ProcessStartInfo("powershell.exe", string.Format("-NoProfile -ExecutionPolicy Bypass -File \"{0}\" -Dossier \"{1}\" -Installer", scriptMaj, dos)) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, StandardOutputEncoding = Encoding.GetEncoding(850), WorkingDirectory = dos };
+        using (var p = Process.Start(psi)) { sortie = p.StandardOutput.ReadToEnd(); p.WaitForExit(); code = p.ExitCode; }
+      } catch (Exception ex) { sortie = ex.Message; }
+      try { BeginInvoke((Action)(() => FinInstallMaj(code, sortie))); } catch { }
+    });
+    t.IsBackground = true; t.Start();
+  }
+  void FinInstallMaj(int code, string sortie) {
+    if (voileMaj == null) return;
+    if (code == 0) { bMajOui.Text = "Redémarrage…"; lMajInfo.Text = "Mise à jour installée."; lMajInfo.ForeColor = Vert; Relancer(); return; }
+    sortie = (sortie ?? "").Trim();
+    lMajInfo.Text = "La mise à jour a échoué, le logiciel reste dans sa version actuelle." + (sortie != "" ? " " + sortie : ""); lMajInfo.ForeColor = Rouge;
+    bMajOui.Text = "Réessayer"; bMajOui.Enabled = true;
+    bMajNon.Text = "Fermer"; bMajNon.Enabled = true;
+  }
   void FermerTuto() {
     ecranVerifie = true; Sauver();
     Controls.Remove(tuto); tuto.Dispose(); tuto = null;
     foreach (var c in tutoCaches) c.Visible = true;
     tutoCaches.Clear();
     Ecrire("Écran vérifié. Tu peux utiliser le logiciel.", Vert);
+    ChercherMaj();
   }
 
   // ------------------------------ Couleur d'accent ------------------------------
@@ -1599,7 +1690,7 @@ public class FermeCanne : Form {
     lFin.Text = "fin du tour vers " + fin.ToString("HH:mm");
   }
 
-  // Redemarrer le menu : relance Ferme-canne.ps1 (comme Lancer.bat : mise a jour, puis menu recompile), puis se ferme.
+  // Redemarrer le menu : relance Ferme-canne.ps1 (comme Lancer.bat : menu recompile), puis se ferme.
   // Pas pendant qu'un script tourne : il faut l'arreter d'abord (sinon il perdrait son menu).
   void Relancer() {
     if (EnCours()) { Ecrire("Arrête d'abord le script, puis redémarre le menu.", Jaune); return; }

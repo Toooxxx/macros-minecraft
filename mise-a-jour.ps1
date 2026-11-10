@@ -1,40 +1,17 @@
-# mise-a-jour.ps1 : appele par Ferme-canne.ps1 avant d'ouvrir le menu.
-# Compare version.txt a celui du depot GitHub ecrit dans depot.txt (proprietaire/nom).
-# Si le depot a une version plus recente : demande, garde une copie de l'ancienne version
+# mise-a-jour.ps1 : appele par le menu quand le joueur accepte la mise a jour (popup du menu).
+# Telecharge le depot GitHub ecrit dans depot.txt (proprietaire/nom), garde une copie de l'ancienne version
 # dans "ancienne-version", installe. Les reglages, l'historique et les diagnostics ne sont jamais touches.
-# Pas de depot, pas d'Internet, GitHub en panne : le menu s'ouvre normalement, sans rien dire.
-param([string]$Dossier)
-
-$depotFichier = Join-Path $Dossier 'depot.txt'
-if (-not (Test-Path $depotFichier)) { return }
-$depot = (Get-Content $depotFichier -TotalCount 1).Trim()
-if ($depot -notmatch '^[\w.-]+/[\w.-]+$') { return }
-
-function Numero-Version($texte) { if ($texte -match '^\s*(\d+)') { return [int]$Matches[1] } return 0 }
+# Code de sortie : 0 = installe, 1 = echec (le message est ecrit sur la sortie).
+param([string]$Dossier, [switch]$Installer)
+if (-not $Installer) { return }   # une ancienne version de Ferme-canne.ps1 peut encore l'appeler sans -Installer : le menu s'en charge
 
 # Fichiers et dossiers propres a chaque joueur : jamais remplaces ni supprimes (seulement crees s'ils manquent).
 $proteges = @('Ferme-canne.ini', 'historique.csv', 'lectures.log', 'depot.txt', 'departs-etages.txt', 'diagnostics', 'ancienne-version', '.git')
 
 try {
+  $depot = (Get-Content (Join-Path $Dossier 'depot.txt') -TotalCount 1).Trim()
+  if ($depot -notmatch '^[\w.-]+/[\w.-]+$') { throw 'depot.txt invalide' }
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-  $local = 0
-  $versionLocale = Join-Path $Dossier 'version.txt'
-  if (Test-Path $versionLocale) { $local = Numero-Version (Get-Content $versionLocale -Raw) }
-
-  $req = [Net.WebRequest]::Create("https://raw.githubusercontent.com/$depot/main/version.txt?t=$([Environment]::TickCount)")
-  $req.Timeout = 4000
-  $rep = $req.GetResponse()
-  $texte = (New-Object IO.StreamReader $rep.GetResponseStream()).ReadToEnd(); $rep.Close()
-  $distante = Numero-Version $texte
-  if ($distante -le $local) { return }
-
-  # version.txt : premiere ligne = numero, lignes suivantes = nouveautes
-  $notes = (($texte -split "`r?`n") | Select-Object -Skip 1 | Where-Object { $_.Trim() }) -join "`n"
-  $msg = "Nouvelle version disponible (version $distante, tu as la version $local).`n`n"
-  if ($notes) { $msg += "Nouveautes :`n$notes`n`n" }
-  $msg += "L'installer maintenant ?`n(Tes reglages et tes statistiques sont conserves, l'ancienne version est gardee dans le dossier `"ancienne-version`".)"
-  $choix = [System.Windows.Forms.MessageBox]::Show($msg, 'Macros Minecraft : mise a jour', 'YesNo', 'Question')
-  if ($choix -ne 'Yes') { return }
 
   $tmp = Join-Path ([IO.Path]::GetTempPath()) ("macros-maj-" + [Guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Force $tmp | Out-Null
@@ -52,7 +29,7 @@ try {
   foreach ($f in Get-ChildItem $source.FullName -Recurse -File) {
     $rel = $f.FullName.Substring($source.FullName.Length + 1)
     $cible = Join-Path $Dossier $rel
-    if (($proteges -contains ($rel -split '\\')[0]) -and (Test-Path $cible)) { continue }
+    if (($proteges -contains $rel.Split([char]92)[0]) -and (Test-Path $cible)) { continue }
     if (Test-Path $cible) {
       $copie = Join-Path $sauvegarde $rel
       New-Item -ItemType Directory -Force (Split-Path $copie) | Out-Null
@@ -62,9 +39,8 @@ try {
     Copy-Item $f.FullName $cible -Force
   }
   Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
-  [void][System.Windows.Forms.MessageBox]::Show("Mise a jour installee (version $distante).", 'Macros Minecraft : mise a jour', 'OK', 'Information')
+  exit 0
 } catch {
-  if ($choix -eq 'Yes') {
-    [void][System.Windows.Forms.MessageBox]::Show("La mise a jour a echoue : $($_.Exception.Message)`nLe logiciel reste dans sa version actuelle.", 'Macros Minecraft : mise a jour', 'OK', 'Warning')
-  }
+  Write-Output $_.Exception.Message
+  exit 1
 }
