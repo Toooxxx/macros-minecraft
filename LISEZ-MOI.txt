@@ -27,13 +27,15 @@ MACROS MINECRAFT : canne, pasteques, citrouilles, mine 3x3, peche, autoclick
 - Le jeu doit etre EN FENETRE (ou fenetre sans bordure), pas en vrai plein ecran :
   en plein ecran, Windows donne des images noires et le script ne voit rien.
 - Si plusieurs Minecraft sont ouverts (par exemple un compte AFK sur le launcher normal), les macros
-  n'utilisent que Lunar. Lunar doit rester devant : si une autre fenetre passe devant, elles se
-  mettent en pause.
+  n'utilisent que Lunar. Lunar doit etre au premier plan quand tu appuies sur F7, et le rester :
+  si une autre fenetre passe devant, la macro se met en pause (sauf option "Au second plan", voir 9).
 
 3. TOUCHES (modifiables dans Options)
 -------------------------------------
 - F7 : demarrer dans le jeu, puis pause / reprise.
 - F8 : arret immediat (tout est relache). Le bouton "Arreter" du menu fait pareil.
+- Les touches du jeu (avancer, chat, slots...) sont lues dans tes reglages Minecraft : tu n'as rien
+  a changer, tant qu'elles sont sur le clavier et pas sur un bouton de souris.
 
 4. HOMES A POSER UNE SEULE FOIS
 -------------------------------
@@ -48,13 +50,16 @@ Chaque macro revient au depart avec un home qui porte exactement ce nom. Pose ce
 ----------
 Canne a sucre
 - Dial (vente) au slot 1. Dans le jeu : colle au mur de depart, en visant les cannes, puis F7.
-- Options dans le menu : vente au Dial, Vote Party, anti-lag en fin de tour.
+- Options dans le menu : etage de depart (1 a 12), nombre de tours, vente au Dial, Vote Party,
+  anti-lag en fin de tour. Apres un arret, le menu propose de reprendre a l'etage ou tu en etais.
 - La ferme doit rester AU PREMIER PLAN (elle tourne la camera, impossible au second plan).
 Pasteques et citrouilles
 - F3 ferme, coordonnees affichees, hache en main, au debut de la rangee de depart, puis F7.
 - Pasteques : regard a l'est a l'etage 1, a l'ouest a l'etage 2. Citrouilles : l'inverse.
 - Rangee impaire : cote petit Z. Rangee paire : cote grand Z.
 - Il faut un mur tout le long de chaque couloir.
+- Options dans le menu : etage de depart (1 ou 2), rangee de depart (1 a 12), nombre de tours,
+  calibrage du regard (la macro ouvre F3 au debut de chaque tour). Pas de vente dans ce mode.
 
 6. MINAGE (mine 3x3)
 --------------------
@@ -66,20 +71,24 @@ Pasteques et citrouilles
 - Elle s'arrete seule, sans rien taper, si tu sors de la mine, si tu recules ou si tu n'avances
   plus pendant 30 secondes.
 - Le regard vient du home : si tu marches dans la mauvaise direction, repose le home.
-- Pas de vente dans ce mode.
+- Pas de vente dans ce mode. Pas d'option "Au second plan" non plus : garde Lunar devant toi.
+- Dans les statistiques, les sessions de mine comptent dans la categorie Autoclick.
 
 7. PECHE
 --------
 - Canne en main au slot choisi, ligne PAS lancee, puis F7. Le script lance, joue le mini-jeu,
   lit l'espece et les gains, ramene les poissons vanilla, et relance.
+- Options dans le menu : slot de la canne (1 par defaut), attente avant de relancer, relance si
+  rien ne mord, nombre maximum de poissons, reglages du mini-jeu.
 - Onglet Vente (desactive par defaut) : vend au Dial toutes les X minutes, ligne rentree, jamais
   pendant le mini-jeu. Regle le slot du Dial : il doit etre different de celui de la canne.
   La premiere vente arrive X minutes apres le lancement.
 
 8. AUTOCLICK
 ------------
-- Bouton gauche ou droit, clics repetes ou clic maintenu.
-- Onglet Vente : vente au Dial (slot 1) quand le compteur d'objets atteint le seuil, et Vote Party.
+- Bouton gauche ou droit, clics repetes ou clic maintenu, duree et nombre de clics maximum en option.
+- Onglet Vente (desactive par defaut) : vente au Dial (slot 1) quand le compteur d'objets atteint
+  le seuil, puis retour au slot choisi, et Vote Party.
 - Vote Party (canne et autoclick) : quand il repart de zero, ses objets prennent des slots ; indique
   combien, et le seuil de vente baisse de 64 objets par slot, une fois par session. 0 = ignorer.
 
@@ -115,6 +124,8 @@ Pasteques et citrouilles
 ----------------
 - Statistiques (tuile en haut a droite) : gains, argent par heure, especes de poissons...
   Tout reste sur ton PC (historique.csv, dossier diagnostics).
+- Options (tuile a cote de Statistiques) : couleurs du menu, touches F7 / F8, mini-fenetre par-dessus
+  le jeu, reponse a la verification AFK, et bouton "Tester mon ecran" pour refaire un test.
 - Si quelque chose ne marche pas, le journal en bas du menu dit pourquoi, et le dossier
   "diagnostics" garde des images de ce que le script a vu.
   Envoie ces images (et une copie du journal) a la personne qui t'a donne le dossier.
