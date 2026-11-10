@@ -1,5 +1,5 @@
-MACROS MINECRAFT : ferme a canne, minage, peche
-================================================
+MACROS MINECRAFT : canne, pasteques, citrouilles, mine 3x3, peche, autoclick
+============================================================================
 
 1. INSTALLATION (rien a installer)
 ---------------------------------
@@ -8,64 +8,114 @@ MACROS MINECRAFT : ferme a canne, minage, peche
 - Extraire le dossier ou tu veux.
 - Lancer : double-clic sur "Lancer.bat". Le menu s'ouvre.
   Si Windows affiche un avertissement : "Informations complementaires" > "Executer quand meme".
+- Au premier lancement, le menu reste bloque sur une page de verification tant que tout n'est pas
+  valide : Lunar Client lance, coordonnees affichees, stack d'objets en main, touches du jeu,
+  lecture de F3 et mouvement de la souris.
+  Lis le texte, clique sur "Lancer le test", puis retourne dans le jeu : tu as 60 secondes.
+  Une voix annonce "Test termine" quand tu peux revenir sur le menu.
+  Le test ouvre F3 et bouge un peu la vue, sans cliquer.
 
 2. REGLAGES DU JEU (indispensables)
 -----------------------------------
 - Lunar Client. Taille de l'interface : n'importe laquelle de 1 a 4 (le script la trouve sur la barre
   d'objets ; le journal affiche "Taille de l'interface du jeu : ..."). Jeu en francais ou en anglais.
 - Coordonnees (module de Lunar) affichees EN BLANC dans le coin EN HAUT A GAUCHE.
-  Peu importe la place exacte ou la taille : le script les trouve tout seul au demarrage
-  (le journal affiche "Coordonnees trouvees en haut a gauche").
+  Peu importe la place exacte ou la taille : le script les trouve tout seul au demarrage.
 - Compteur d'objets (module de Lunar) en blanc, dans le coin EN BAS A DROITE (pour la vente
   automatique). La aussi, le script le trouve tout seul.
 - Peche : sous-titres actives (Options > Musique et sons > Afficher les sous-titres).
+- Le jeu doit etre EN FENETRE (ou fenetre sans bordure), pas en vrai plein ecran :
+  en plein ecran, Windows donne des images noires et le script ne voit rien.
+- Si plusieurs Minecraft sont ouverts (par exemple un compte AFK sur le launcher normal), les macros
+  n'utilisent que Lunar. Lunar doit rester devant : si une autre fenetre passe devant, elles se
+  mettent en pause.
 
 3. TOUCHES (modifiables dans Options)
 -------------------------------------
 - F7 : demarrer dans le jeu, puis pause / reprise.
 - F8 : arret immediat (tout est relache). Le bouton "Arreter" du menu fait pareil.
 
-4. FERME A CANNE
-----------------
-- Une seule fois : fais /sethome s au point de depart de la ferme (19 107 -80).
-  Le script tape /home s entre deux tours et verifie qu'il arrive bien la.
-- Dial (vente) au slot 1. Dans le jeu : colle au mur de depart, en visant les cannes, puis F7.
-- La ferme doit rester AU PREMIER PLAN (elle tourne la camera, impossible au second plan).
+4. HOMES A POSER UNE SEULE FOIS
+-------------------------------
+Chaque macro revient au depart avec un home qui porte exactement ce nom. Pose ceux dont tu as besoin :
+- Canne : /sethome canne au point de depart de la ferme (19 107 -80).
+- Pasteques : /sethome pasteque au debut de la ferme.
+- Citrouilles : /sethome citrouille au debut de la ferme.
+- Mine 1 : /sethome mine1 au depart en X -140, en regardant le tunnel (regard -90 / 0).
+- Mine 2 : /sethome mine2 au depart en X 128, en regardant le tunnel (regard 90 / 0).
 
-5. MINAGE ET PECHE
-------------------
-- Minage : bouton gauche ou droit, clics ou clic tenu, vente au Dial (slot 1) en option,
-  arret automatique si tu es teleporte (en option).
-- Peche : canne en main au slot choisi, ligne PAS lancee, puis F7. Le script lance, joue le
-  mini-jeu, lit l'espece et les gains, ramene les poissons vanilla, et relance.
-- Option "Au second plan" (pages Minage et Peche) : tu peux faire autre chose sur ton ecran
-  principal pendant que le jeu tourne sur un autre ecran.
+5. CULTURE
+----------
+Canne a sucre
+- Dial (vente) au slot 1. Dans le jeu : colle au mur de depart, en visant les cannes, puis F7.
+- Options dans le menu : vente au Dial, Vote Party, anti-lag en fin de tour.
+- La ferme doit rester AU PREMIER PLAN (elle tourne la camera, impossible au second plan).
+Pasteques et citrouilles
+- F3 ferme, coordonnees affichees, hache en main, au debut de la rangee de depart, puis F7.
+- Pasteques : regard a l'est a l'etage 1, a l'ouest a l'etage 2. Citrouilles : l'inverse.
+- Rangee impaire : cote petit Z. Rangee paire : cote grand Z.
+- Il faut un mur tout le long de chaque couloir.
+
+6. MINAGE (mine 3x3)
+--------------------
+- Choisis Mine 1 (depart X -140, vers l'est) ou Mine 2 (depart X 128, vers l'ouest).
+- F3 ferme, coordonnees affichees, pioche 3x3 en main, dans le tunnel (Y -3 obligatoire), puis F7.
+- La macro avance en maintenant le clic gauche. Au bout du tunnel tu tombes de Y -3 a Y -5 : elle
+  relache tout, attend 20 secondes, tape /home mine1 ou /home mine2, verifie que tu es au depart
+  et repart.
+- Elle s'arrete seule, sans rien taper, si tu sors de la mine, si tu recules ou si tu n'avances
+  plus pendant 30 secondes.
+- Le regard vient du home : si tu marches dans la mauvaise direction, repose le home.
+- Pas de vente dans ce mode.
+
+7. PECHE
+--------
+- Canne en main au slot choisi, ligne PAS lancee, puis F7. Le script lance, joue le mini-jeu,
+  lit l'espece et les gains, ramene les poissons vanilla, et relance.
+- Onglet Vente (desactive par defaut) : vend au Dial toutes les X minutes, ligne rentree, jamais
+  pendant le mini-jeu. Regle le slot du Dial : il doit etre different de celui de la canne.
+  La premiere vente arrive X minutes apres le lancement.
+
+8. AUTOCLICK
+------------
+- Bouton gauche ou droit, clics repetes ou clic maintenu.
+- Onglet Vente : vente au Dial (slot 1) quand le compteur d'objets atteint le seuil, et Vote Party.
+- Vote Party (canne et autoclick) : quand il repart de zero, ses objets prennent des slots ; indique
+  combien, et le seuil de vente baisse de 64 objets par slot, une fois par session. 0 = ignorer.
+
+9. SECURITE ET SECOND PLAN
+--------------------------
+- Onglet Securite de chaque mode : arret automatique si tu es teleporte (en option). Regle la
+  distance comptee comme une teleportation. Les /home lances par la macro ne comptent pas.
+- Option "Au second plan" (pages Autoclick et Peche seulement) : tu peux faire autre chose sur ton
+  ecran principal pendant que le jeu tourne sur un autre ecran.
     * Dans le jeu : F3 + P (sinon le jeu se met en pause des qu'il perd la main).
     * Le jeu doit rester VISIBLE (ni reduit, ni cache par une autre fenetre) : le script lit l'ecran.
     * Si Lunar baisse les images par seconde au second plan, desactive cette limite dans ses reglages.
 
-6. VERIFICATION AFK
--------------------
+10. VERIFICATION AFK ET CHAT
+----------------------------
 - Le script reconnait le message "AFK Verification" au centre de l'ecran.
 - Option "Repondre seul" (Options) : DESACTIVEE par defaut. Desactivee, il bipe 3 fois et
   c'est a toi de repondre. Activee, il ecrit lui-meme le nombre demande dans le chat.
-- A part /home s (ferme) et ce nombre (si l'option est activee), le script n'ecrit RIEN dans le chat.
+- Le script n'ecrit RIEN dans le chat, sauf :
+    * /home canne, /home pasteque, /home citrouille, /home mine1, /home mine2 (retour au depart) ;
+    * /spawn puis /is go, seulement si l'option anti-lag de la canne est activee ;
+    * le nombre de la verification AFK, seulement si "Repondre seul" est active.
 
-7. MISES A JOUR
----------------
+11. MISES A JOUR
+----------------
 - A l'ouverture du menu, le logiciel regarde s'il existe une nouvelle version (sur GitHub).
   Si oui, il affiche les nouveautes et demande s'il faut l'installer.
 - Tes reglages, tes statistiques et tes diagnostics sont conserves.
   L'ancienne version est gardee dans le dossier "ancienne-version".
 - Sans Internet, le menu s'ouvre normalement.
 
-8. BON A SAVOIR
----------------
+12. BON A SAVOIR
+----------------
 - Statistiques (tuile en haut a droite) : gains, argent par heure, especes de poissons...
   Tout reste sur ton PC (historique.csv, dossier diagnostics).
 - Si quelque chose ne marche pas, le journal en bas du menu dit pourquoi, et le dossier
   "diagnostics" garde des images de ce que le script a vu.
   Envoie ces images (et une copie du journal) a la personne qui t'a donne le dossier.
-- Le jeu doit etre EN FENETRE (ou fenetre sans bordure), pas en vrai plein ecran :
-  en plein ecran, Windows donne des images noires et le script ne voit rien.
 - Utiliser des macros peut etre interdit par les regles du serveur : c'est a tes risques.

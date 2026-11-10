@@ -24,13 +24,19 @@ param(
   [int]$RepondreVerif = 0,       # 1 = repondre a la verification AFK (option du menu)
   [int]$SecondPlan = 0,          # 1 = touches et clics envoyes directement a la fenetre du jeu (jeu au second plan)
   [int]$TouchePause = 0x76,
-  [int]$ToucheArret = 0x77
+  [int]$ToucheArret = 0x77,
+  [int]$VenteMin = 0,            # vente au dial toutes les N minutes (0 = jamais)
+  [int]$SlotDial = 2,            # slot du dial pour cette vente
+  [int]$StopTP = 0,              # 1 = arret si teleporte (option du menu)
+  [int]$TPBlocs = 3
 )
 
 $Dossier = Split-Path -Parent $MyInvocation.MyCommand.Path
 Add-Type -AssemblyName System.Windows.Forms
 $NomPause = ([System.Windows.Forms.Keys]$TouchePause).ToString()
 $NomArret = ([System.Windows.Forms.Keys]$ToucheArret).ToString()
+. (Join-Path $Dossier 'touches.ps1')                               # touches du jeu, lues dans ses reglages
+. (Join-Path $Dossier 'securite.ps1')                              # arret si teleporte (option du menu)
 
 # Memes outils que la ferme (touches, lecture de l'argent) : on reprend son bloc C#.
 $src = Get-Content (Join-Path $Dossier 'canne-etage.ps1') -Raw
@@ -58,6 +64,26 @@ public static class Peche {
     foreach (var m in Marrons) if (Math.Abs(r - m[0]) <= 10 && Math.Abs(g - m[1]) <= 10 && Math.Abs(b - m[2]) <= 10) return true;
     return false;
   }
+  // Pixels du poisson : casquette bleu marine, ou vert-bleu fonce (sarcelle : casquette de certains poissons et
+  // contour du corps). 26/10/2026, 75 images de mini-jeux : la sarcelle trouve le poisson sur toutes, et presque
+  // rien d'autre ; avant, elle n'etait acceptee que pres de la zone verte, et un poisson a casquette sarcelle
+  // loin de la zone n'etait pas vu du tout.
+  public static bool Fonce(int r, int g, int b) {
+    if (r + g + b >= 150) return false;
+    return (b - g >= 15) || (Math.Abs(b - g) <= 12 && g - r >= 20);
+  }
+  // Ligne couverte par le fond sombre d'une ligne de chat : le cadre marron entre la barre et la jauge
+  // (4 a 5 unites a droite de l'interieur) n'y est plus marron. Le poisson, lui, ne va jamais jusque-la :
+  // 26/10/2026, 50 images, cette colonne n'est cachee que par le chat.
+  static bool SousLeChat(byte[] b, int stride, int y, int x1, int w, int s) {
+    for (int x = x1 + 4 * s; x <= x1 + 5 * s && x < w; x++) { int o = y * stride + x * 3; if (CouleurCadre(b[o + 2], b[o + 1], b[o])) return false; }
+    return x1 + 4 * s < w;
+  }
+  // casquette et corps sont separes de ~13 px (interface x3) : un seul bloc
+  static int TrouPoisson(int hauteurInterieur) { return Math.Max(6, hauteurInterieur / 40); }
+  // memoire des lignes foncees immobiles (une barre a la fois) ; Oublier() au debut de chaque mini-jeu
+  static int[] Pareil, Avant;
+  public static void Oublier() { Pareil = null; Avant = null; }
   static int[] Bloc(int[] compte, int min, int trou) {
     int mh = -1, mb = -1, mt = 0, dh = -1, db = -1, tot = 0, vide = 0;
     for (int y = 0; y <= compte.Length; y++) {
@@ -83,21 +109,30 @@ public static class Peche {
       var b = new byte[bd.Stride * bmp.Height]; Marshal.Copy(bd.Scan0, b, 0, b.Length); bmp.UnlockBits(bd);
       int s = bd.Stride, h = bmp.Height, w = bmp.Width;
       int nv = 0, zh = -1, zb = -1, ph = -1, pb = -1, jauge = 0;
-      var fonces = new int[h]; var verts = new int[h]; var teintes = new int[h];
+      var fonces = new int[h]; var verts = new int[h];
+      if (Pareil == null || Pareil.Length != h) { Pareil = new int[h]; Avant = new int[h]; }
+      int ech = Math.Max(1, (int)Math.Round((y1 - y0) / 187.0));                 // echelle de l'interface (interieur : ~187 unites)
       int minVert = Math.Max(4, (x1 - x0) / 4);
       int yFin = y1 - (y1 - y0) / 9;                                              // la jarre, en bas (~1/9 de la barre) : pas de poisson la-dedans
       for (int y = 0; y < h; y++) {
-        int vert = 0, fonce = 0, teinte = 0;
+        int vert = 0, fonce = 0;
         if (y >= y0 && y <= y1)
           for (int x = x0; x <= x1 && x < w; x++) {
             int o = y * s + x * 3; int bl = b[o], gg = b[o + 1], r = b[o + 2];
             if (gg >= 140 && gg - r >= 50 && gg - bl >= 50 && r <= 150) vert++;   // zone verte (vert strict : un vert plus large prenait les algues du fond, 25/10/2026)
-            if (r + gg + bl < 150 && bl - gg >= 15) fonce++;                       // casquette bleu marine (le fond du chat, les algues : gris-vert)
-            else if (r + gg + bl < 150 && Math.Abs(bl - gg) <= 12 && gg - r >= 20) teinte++;   // casquette d'un poisson DANS la zone (teinte en vert)
+            if (Fonce(r, gg, bl)) fonce++;
           }
         nv += vert;
         verts[y] = vert;
-        if (y <= yFin) { fonces[y] = fonce; teintes[y] = teinte; }
+        if (y <= yFin && SousLeChat(b, s, y, x1, w, ech)) fonce = 0;
+        if (y <= yFin) {
+          // ligne foncee strictement identique depuis ~1,5 s : ligne de chat ou decor, pas le poisson (qui bouge ;
+          // s'il s'arrete, le script garde sa derniere place). 26/10/2026 : une ligne de chat sur le bas de la
+          // barre etait prise pour le poisson pendant des secondes -> poissons rates.
+          if (fonce >= 3 && fonce == Avant[y]) Pareil[y]++; else Pareil[y] = 0;
+          Avant[y] = fonce;
+          fonces[y] = Pareil[y] >= 45 ? 0 : fonce;
+        }
         if (y > y0 - 12 && xj < w) { int oj = y * s + xj * 3; if (b[oj + 2] >= 200 || b[oj + 1] >= 170) jauge++; }   // jauge : rouge -> vert
       }
       // cadre : son COTE GAUCHE, colonnes [xg..xd], la meilleure (sa place varie de quelques pixels), en % de ses pixels.
@@ -110,9 +145,7 @@ public static class Peche {
         if (t > 0) cadre = Math.Max(cadre, 100 * n / t);
       }
       var zv = Bloc(verts, minVert, 6); zh = zv[0]; zb = zv[1];   // zone : le plus gros bloc de lignes vertes
-      // le poisson teinte en vert ne peut etre que dans la zone (+- la moitie de sa taille)
-      if (zh >= 0) { int marge = (y1 - y0) / 18; for (int y = Math.Max(0, zh - marge); y <= Math.Min(h - 1, zb + marge); y++) fonces[y] += teintes[y]; }
-      var p = Bloc(fonces, 3, 6); ph = p[0]; pb = p[1];
+      var p = Bloc(fonces, 3, TrouPoisson(y1 - y0)); ph = p[0]; pb = p[1];
       return new[] { nv, zh, zb, ph, pb, jauge, cadre };
     }
   }
@@ -166,8 +199,9 @@ public static class Peche {
     // poisson : pixels tres fonces (casquette, oeil) dans l'interieur
     // (le plus gros bloc de lignes foncees : la petite jarre en bas de la barre peut avoir du fonce, 25/10/2026)
     var fonces = new int[h];
-    for (int y = haut; y <= bas; y++) { int f = 0; for (int x = x0; x <= x1; x++) { int o = y * st + x * 3; if (b[o] + b[o + 1] + b[o + 2] < 150 && b[o] - b[o + 1] >= 15) f++; } fonces[y] = f; }
-    var pf = Bloc(fonces, 3, 6); int ph = pf[0], pb = pf[1];
+    int finPoisson = bas - (bas - haut) / 9;                                  // pas la jarre, en bas
+    for (int y = haut; y <= finPoisson; y++) { if (SousLeChat(b, st, y, x1, w, s)) continue; int f = 0; for (int x = x0; x <= x1; x++) { int o = y * st + x * 3; if (Fonce(b[o + 2], b[o + 1], b[o])) f++; } fonces[y] = f; }
+    var pf = Bloc(fonces, 3, TrouPoisson(bas - haut)); int ph = pf[0], pb = pf[1];
     // jauge : a 13 unites a droite de l'interieur (rouge -> vert en se remplissant)
     int xj = x1 + 13 * s, jauge = 0;
     if (xj < w) for (int y = Math.Max(0, haut - 4 * s); y <= Math.Min(h - 1, bas + 8 * s); y++) { int o = y * st + xj * 3; if (b[o + 2] >= 200 || b[o + 1] >= 170) jauge++; }
@@ -214,7 +248,7 @@ function Bouton($bas) { (Clic-Droit $bas); $script:Tenu = $bas }
 function Relacher-Tout { (Clic-Droit $false); $script:Tenu = $false }
 function Clic-Court { (Clic-Droit $true); Start-Sleep -Milliseconds 60; (Clic-Droit $false) }
 
-$script:PidsJeu = @(Get-Process -Name javaw, java -ErrorAction SilentlyContinue | ForEach-Object { [uint32]$_.Id })
+$script:PidsJeu = @(Garder-Lunar (Get-Process -Name javaw, java -ErrorAction SilentlyContinue) | ForEach-Object { [uint32]$_.Id })
 . (Join-Path $Dossier 'verification.ps1')                       # gros message au centre (verification) : images seulement
 if ($SecondPlan -eq 1) {                                                   # mode second plan : on vise la fenetre du jeu
   $fj = Get-Process -Id $script:PidsJeu -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
@@ -243,7 +277,7 @@ function Verifier {
     while ([Environment]::TickCount -lt $fin) { Start-Sleep -Milliseconds 25; if (Au-Premier-Plan) { return $true } }
     $pause = $true; Write-Host "Le jeu n'est plus au premier plan : en pause. Reviens dans le jeu, ferme le menu (Echap), puis $NomPause."
   }
-  if (-not $pause) { return $false }
+  if (-not $pause) { Verifier-TP; return [bool]$script:Arret }
   Relacher-Tout
   while ($true) {
     if (-not (Attendre-F7)) { return $true }
@@ -252,6 +286,7 @@ function Verifier {
   }
   Start-Sleep -Milliseconds 300
   Write-Host "Reprise"
+  Oublier-TP
   return $true
 }
 function Dormir($ms) {
@@ -269,7 +304,7 @@ function Lire-Argent {
   $r = New-Object Entree+RECT; [void][Entree]::GetWindowRect($h, [ref]$r)
   $larg = $r.R - $r.L
   if ($larg -lt 200) { return $null }
-  $zone = New-Object System.Drawing.Rectangle ($r.L + [int]($larg * 0.15)), ($r.T + 8), ([int]($larg * 0.7)), 110
+  $zone = New-Object System.Drawing.Rectangle ($r.L + [int]($larg * 0.15)), ($r.T + 8), ([int]($larg * 0.7)), (37 * $script:Gui)
   $t = [Glyphes]::LireCouleur($zone, 255, 188, 53, $script:Gui)
   if ($t -notmatch '(\d+(?:\.\d+)?)([KMB]?)$') { return $null }
   $mult = @{ '' = 1; 'K' = 1e3; 'M' = 1e6; 'B' = 1e9 }[$Matches[2]]
@@ -325,6 +360,7 @@ function Jouer-MiniJeu {
   $histo = New-Object System.Collections.Generic.List[double[]]   # { t (s), centre zone, centre poisson }
   $sw = [Diagnostics.Stopwatch]::StartNew()
   $absente = 0; $jauge = 0; $fc = $null
+  [Peche]::Oublier()
   # journal du mini-jeu (pour regler le script sur les poissons difficiles) : une ligne par image,
   # et quelques images de la barre, gardees seulement si le poisson est rate
   $dossierMJ = Join-Path $Dossier 'diagnostics\minijeux'; New-Item -ItemType Directory -Force $dossierMJ | Out-Null
@@ -460,11 +496,23 @@ function Rect-Chat {
   return New-Object System.Drawing.Rectangle ($c.X + 4), ($c.Bottom - 110 * $s), (290 * $s), (80 * $s)
 }
 # Gains d'une prise, au-dessus de la barre de vie : "+1389.98 (piece)  +1503.47 (fiole d'XP)", en vert clair.
-# Mesure (2560 x 1440, interface x3) : de 130 a 0 unites a gauche du centre, de 80 a 58 unites au-dessus du bas.
+# Mesure (2560 x 1440, interface x3) : de 80 a 58 unites au-dessus du bas. Le texte finit au centre et s'allonge
+# vers la GAUCHE : 07/11/2026, "+79030.29 +24617.37" commencait 132 unites a gauche du centre, la zone a 130 coupait
+# le "+" (gains des gros poissons pas lus). Zone de 145 unites (6 chiffres), sans aller jusqu'au chat (290 du bord).
 function Rect-Gains {
   $c = Client-Jeu
   $s = $script:Gui
-  return New-Object System.Drawing.Rectangle ($c.X + [int]($c.Width / 2) - 130 * $s), ($c.Bottom - 80 * $s), (133 * $s), (22 * $s)
+  return New-Object System.Drawing.Rectangle ($c.X + [int]($c.Width / 2) - 145 * $s), ($c.Bottom - 80 * $s), (148 * $s), (22 * $s)
+}
+# Image autour des gains quand ils ne sont pas lus (10 au plus, les plus anciennes remplacees)
+$script:DiagGain = 0; $script:DiagTouche = 0
+function Image-GainPasLu {
+  $c = Client-Jeu; $s = $script:Gui
+  $script:DiagGain = $script:DiagGain % 10 + 1
+  $diag = Join-Path $Dossier 'diagnostics'; New-Item -ItemType Directory -Force $diag | Out-Null
+  $f = "gain-pas-lu-{0}.png" -f $script:DiagGain
+  [Peche]::Sauver((New-Object System.Drawing.Rectangle ($c.X + [int]($c.Width / 2) - 200 * $s), ($c.Bottom - 95 * $s), (300 * $s), (50 * $s)), (Join-Path $diag $f))
+  return $f
 }
 # Sous-titres du jeu, colles au bord droit (capture du 24/10/2026 : "Splashing", "Bobber thrown >",
 # lignes espacees de 10 rangees). A gauche et en dessous : les touches Z Q S / LMB RMB de Lunar, hors zone.
@@ -531,7 +579,8 @@ function Lire-Issue($avant) {
           $res.Hex = if ($k -gt 0) { '{0:X2}{1:X2}{2:X2}' -f [int]($r / $k), [int]($g / $k), [int]($b / $k) } else { '808080' }
           break
         }
-        if ($l.Texte -match 'cass|chapp|perdu') { $res.Issue = 'rate'; $res.Texte = $l.Texte.Trim('? '); break }
+        # pas "trouves sur les iles perdues" (07/11/2026 : un message du serveur pris pour une ligne cassee)
+        if ($l.Texte -match 'cass|chapp|perdu' -and $l.Texte -notmatch 'perdues|trouv') { $res.Issue = 'rate'; $res.Texte = $l.Texte.Trim('? '); break }
       }
     }
     if ($res.Issue -eq 'attrape' -and -not $res.Argent) {
@@ -553,6 +602,24 @@ function Lire-Issue($avant) {
 }
 
 # ------------------------------ Boucle ------------------------------
+# Vente au dial toutes les $VenteMin minutes. A appeler seulement ligne rentree : changer d'objet ramene la ligne,
+# et jamais pendant le mini-jeu. Pas de compteur a lire ici : on vend au temps, sans savoir ce que la vente a rapporte.
+$script:ProchaineVenteTimer = 0; $script:VentesTimer = 0
+function Vendre-Timer {
+  if ($VenteMin -le 0 -or [Environment]::TickCount -lt $script:ProchaineVenteTimer) { return }
+  if ($script:Arret -or -not (Au-Premier-Plan)) { return }
+  $script:ProchaineVenteTimer = [Environment]::TickCount + $VenteMin * 60000
+  $d = $script:Slots[$SlotDial - 1]; $c = $script:Slots[$SlotCanne - 1]
+  [Entree]::Touche($d, $true); Start-Sleep -Milliseconds 30; [Entree]::Touche($d, $false)
+  Start-Sleep -Milliseconds 150
+  [Entree]::ClicGauche($true); Start-Sleep -Milliseconds 20; [Entree]::ClicGauche($false)
+  Start-Sleep -Milliseconds 100   # court : le dial tenu en main consomme des utilisations
+  [Entree]::Touche($c, $true); Start-Sleep -Milliseconds 30; [Entree]::Touche($c, $false)
+  Start-Sleep -Milliseconds 150
+  $script:VentesTimer++
+  Write-Host ("  Vente au dial faite ({0} depuis le lancement), prochaine dans {1} min." -f $script:VentesTimer, $VenteMin)
+}
+
 function Peche-Auto {
   if ($script:PidsJeu.Count -eq 0) { Write-Host "Le jeu n'est pas lance." -ForegroundColor Red; return }
   Preparer-Barre
@@ -564,17 +631,19 @@ function Peche-Auto {
     Write-Host "$NomPause recu, mais le jeu n'est pas au premier plan : clique dans le jeu puis $NomPause."
   }
   Start-Sleep -Milliseconds 300
-  $sc = [byte](0x01 + $SlotCanne)                                         # touches 1..9 : scancodes 0x02..0x0A
+  $sc = $script:Slots[$SlotCanne - 1]
   [Entree]::Touche($sc, $true); Start-Sleep -Milliseconds 30; [Entree]::Touche($sc, $false)
   Start-Sleep -Milliseconds 200
   Write-Host "Peche lancee."
+  $script:ProchaineVenteTimer = [Environment]::TickCount + $VenteMin * 60000
+  if ($VenteMin -gt 0) { Write-Host ("Vente au dial (slot {0}) toutes les {1} min, entre deux lancers." -f $SlotDial, $VenteMin) }
   Detecter-Interface; Preparer-Barre                                      # taille de l interface lue sur la barre d objets
   Suivre-Argent $true
   $attrapes = 0; $rates = 0; $vanilla = 0; $faussesTouches = 0; $script:VuSplash = $false
   Calibrer-Icone                                                          # premier lancer + photo de l'icone
   $premier = $true
   while (-not $script:Arret) {
-    if ($premier) { $premier = $false } else { Lancer-Ligne }
+    if ($premier) { $premier = $false } else { Vendre-Timer; Lancer-Ligne }
     $debut = [Environment]::TickCount; $mord = $false; $controle = [Environment]::TickCount + 3000
     $prochainST = 0; $ignorerST = [Environment]::TickCount + 1500        # pas de sous-titre d'avant le lancer
     while (-not $script:Arret) {
@@ -591,6 +660,9 @@ function Peche-Auto {
           while ([Environment]::TickCount -lt $finAttente) { $m = Mesure; if ($m[0] -ge $script:SeuilVert -and $m[1] -ge 0) { $barre = $true; break }; Start-Sleep -Milliseconds 30 }
           if ($barre) { Write-Host ("  touche : barre apres {0} ms" -f ([Environment]::TickCount - $vu)); $mord = $true; break }
           if (-not $script:VuSplash) { $script:VuSplash = $true; [Peche]::Sauver((Rect-SousTitres), (Join-Path (Join-Path $Dossier 'diagnostics') 'sous-titres-touche.png')) }
+          # image des sous-titres avant le clic, gardee seulement si c'est une fausse touche (pour comprendre)
+          $rST = Rect-SousTitres; $bmpST = New-Object System.Drawing.Bitmap $rST.Width, $rST.Height
+          $gST = [System.Drawing.Graphics]::FromImage($bmpST); $gST.CopyFromScreen($rST.Location, [System.Drawing.Point]::Empty, $rST.Size); $gST.Dispose()
           # attrape pour de vrai = "+argent +xp" au-dessus de la vie (affichage different de celui d'avant le clic)
           $gainsAvant = [Glyphes]::LireCouleur((Rect-Gains), 111, 221, 155, $script:Gui)
           Clic-Court
@@ -602,8 +674,16 @@ function Peche-Auto {
           }
           if ($n -and $n.Count -ge 2) { $vanilla++; Write-Host ("  poisson vanilla : attrape ({0} au total)" -f $vanilla); Write-Host ("  gain : argent {0} xp {1}" -f $n[0].Groups[1].Value, $n[1].Groups[1].Value) }
           elseif ($n -and $n.Count -eq 1) { $vanilla++; Write-Host ("  poisson vanilla : attrape ({0} au total), gain lu : +{1}" -f $vanilla, $n[0].Groups[1].Value) }
-          else { $faussesTouches++; Write-Host ("  poisson vanilla : rien gagne, fausse touche ({0} au total)" -f $faussesTouches) }
+          else {
+            $faussesTouches++; $stTouche = Lire-SousTitres                  # encore affiches (~3 s)
+            # image des sous-titres au moment de la touche (10 au plus) : d'ou vient le son ?
+            $script:DiagTouche = $script:DiagTouche % 10 + 1; $fT = "fausse-touche-{0}.png" -f $script:DiagTouche
+            try { $bmpST.Save((Join-Path (Join-Path $Dossier 'diagnostics') $fT), [System.Drawing.Imaging.ImageFormat]::Png) } catch { }
+            Write-Host ("  poisson vanilla : rien gagne, fausse touche ({0} au total) - sous-titres : {1} (image {2})" -f $faussesTouches, $stTouche, $fT)
+          }
+          $bmpST.Dispose()
           if (Dormir 700) { }
+          Vendre-Timer
           Lancer-Ligne
           $ignorerST = [Environment]::TickCount + 3500                      # le sous-titre reste affiche ~3 s
           $debut = [Environment]::TickCount; $controle = [Environment]::TickCount + 3000
@@ -639,7 +719,7 @@ function Peche-Auto {
     if ($issue -eq 'attrape') {
       $attrapes++; Write-Host ("  poisson attrape ({0} au total){1}" -f $attrapes, $note)
       if ($is.Nom) { Write-Host ("  espece : {0} x{1} #{2}" -f $is.Nom, $is.Q, $is.Hex) }
-      if ($is.Argent) { Write-Host ("  gain : argent {0} xp {1}" -f $is.Argent, $is.Xp) } else { Write-Host "  gain : pas lu" }
+      if ($is.Argent) { Write-Host ("  gain : argent {0} xp {1}" -f $is.Argent, $is.Xp) } else { Write-Host ("  gain : pas lu (image {0})" -f (Image-GainPasLu)) }
     } else {
       $rates++; Write-Host ("  poisson rate ({0} au total){1}" -f $rates, $(if ($is.Texte) { " : " + $is.Texte } else { $note }))
     }

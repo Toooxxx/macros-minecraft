@@ -18,18 +18,33 @@ param(
   [int]$VenteSeuil = 0,            # 0 = pas de vente
   [int]$VenteMs = 100,             # apres le clic de vente, temps avant de revenir au slot de retour
   [int]$SlotRetour = 2,            # slot repris apres la vente (le Dial est au slot 1)
+  [int]$VoteSlots = 2,             # slots pris par les objets du VoteParty (0 = ignorer) : le seuil de vente baisse de 64 par slot
   [int]$StopTP = 0,                # 1 = arret si teleporte (saut de position lu en haut a gauche)
   [int]$TPBlocs = 3,               # saut de position (en blocs) compte comme une teleportation
   [int]$RepondreVerif = 0,         # 1 = repondre a la verification AFK (option du menu)
   [int]$SecondPlan = 0,          # 1 = touches et clics envoyes directement a la fenetre du jeu (jeu au second plan)
+  [int]$Avancer = 0,               # 1 = mine en ligne droite : avance en minant ; au mur, /home <HomeMine> puis recommence
+  [string]$HomeMine = 'm',         # nom du home au depart de la mine (/sethome m fait en regardant le tunnel)
+  [int]$MurS = 5,                  # secondes sans avancer d'un bloc = mur atteint
+  [int]$Mine = 0,                  # mine 3x3 (onglet Minage) : 1 = part de X -140 vers l'est, 2 = part de X 128 vers l'ouest ; 0 = pas de mine
+  [int]$MineY = -3,                # fixe : hauteur du tunnel ; au bout, le joueur tombe a -5
+  [int]$MineAttenteS = 20,         # fixe : attente au fond de la chute, avant le /home
+  [int]$MineBloqueS = 30,          # secondes sans avancer dans le tunnel = bloque, arret
   [int]$TouchePause = 0x76,        # F7 par defaut (code de touche virtuelle Windows)
   [int]$ToucheArret = 0x77         # F8 par defaut
 )
 
 $Dossier = Split-Path -Parent $MyInvocation.MyCommand.Path
+# Mine 3x3 : clic gauche maintenu en avancant. /home mine1 et /home mine2 autorises par l'utilisateur le 10/11/2026.
+$MineDepartX = 0; $MineSens = 1; $MineXMin = -145; $MineXMax = 133
+if ($Mine -gt 0) {
+  $Avancer = 1; $Mode = 'maintien'; $Bouton = 'gauche'; $HomeMine = "mine$Mine"
+  if ($Mine -eq 1) { $MineDepartX = -140; $MineSens = 1 } else { $MineDepartX = 128; $MineSens = -1 }
+}
 Add-Type -AssemblyName System.Windows.Forms
 $NomPause = ([System.Windows.Forms.Keys]$TouchePause).ToString()   # nom affiche des touches (F7, F8, Pause...)
 $NomArret = ([System.Windows.Forms.Keys]$ToucheArret).ToString()
+. (Join-Path $Dossier 'touches.ps1')                               # touches du jeu, lues dans ses reglages
 
 # Memes outils que le script de la ferme (touches, souris, lecture des chiffres a l'ecran) :
 # on reprend son bloc C# pour n'avoir qu'une seule version.
@@ -71,9 +86,13 @@ function Bouton($bas) {
   if ($Bouton -eq 'droit') { (Clic-Droit $bas) } else { [Entree]::ClicGauche($bas) }
   $script:Tenu = $bas
 }
-function Relacher-Tout { if ($script:Tenu) { Bouton $false }; [Entree]::ClicGauche($false); (Clic-Droit $false); $script:Tenu = $false }
+function Relacher-Tout { if ($script:Tenu) { Bouton $false }; [Entree]::ClicGauche($false); (Clic-Droit $false); $script:Tenu = $false; Lacher }
+# touche d'avance (mine en ligne droite) ; memes noms que la ferme : verification.ps1 la reprend apres une verification
+function Enfoncer($t) { [Entree]::Touche($t, $true); $script:ToucheTenue = $t }
+function Lacher { if ($null -ne $script:ToucheTenue) { [Entree]::Touche($script:ToucheTenue, $false); $script:ToucheTenue = $null } }
+$script:ToucheTenue = $null
 
-$script:PidsJeu = @(Get-Process -Name javaw, java -ErrorAction SilentlyContinue | ForEach-Object { [uint32]$_.Id })
+$script:PidsJeu = @(Garder-Lunar (Get-Process -Name javaw, java -ErrorAction SilentlyContinue) | ForEach-Object { [uint32]$_.Id })
 . (Join-Path $Dossier 'verification.ps1')                       # gros message au centre (verification) : images seulement
 if ($SecondPlan -eq 1) {                                                   # mode second plan : on vise la fenetre du jeu
   $fj = Get-Process -Id $script:PidsJeu -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
@@ -114,7 +133,9 @@ function Verifier {
   Start-Sleep -Milliseconds 300
   Write-Host "Reprise"; $script:Actif.Start()
   $script:PosRef = $null                                                   # on a pu bouger pendant la pause
+  if ($script:EnAttenteMine) { return $true }                              # au fond de la chute : rien a reprendre
   if ($Mode -eq 'maintien') { Bouton $true }
+  if ($Avancer -eq 1) { Enfoncer $script:Cles.avant; $script:Progres = $null }          # on repart tout droit (le temps de pause ne compte pas pour le mur)
   return $true
 }
 function Dormir($ms) {
@@ -138,7 +159,7 @@ function Lire-Argent {
   $r = New-Object Entree+RECT; [void][Entree]::GetWindowRect($h, [ref]$r)
   $larg = $r.R - $r.L
   if ($larg -lt 200) { return $null }
-  $zone = New-Object System.Drawing.Rectangle ($r.L + [int]($larg * 0.15)), ($r.T + 8), ([int]($larg * 0.7)), 110   # haut de l'ecran, au milieu
+  $zone = New-Object System.Drawing.Rectangle ($r.L + [int]($larg * 0.15)), ($r.T + 8), ([int]($larg * 0.7)), (37 * $script:Gui)   # haut de l'ecran, au milieu
   $t = [Glyphes]::LireCouleur($zone, 255, 188, 53, $script:Gui)
   if ($t -notmatch '(\d+(?:\.\d+)?)([KMB]?)$') { return $null }
   $mult = @{ '' = 1; 'K' = 1e3; 'M' = 1e6; 'B' = 1e9 }[$Matches[2]]
@@ -195,7 +216,7 @@ function Lire-Compteur {
   # 3) recherche dans le coin en bas a droite, au plus toutes les 10 s
   if ($null -eq $script:CompteurAuto -and $script:EchecsCompteur -ge 5 -and [Environment]::TickCount -ge $script:ProchaineRechercheCompteur) {
     $script:ProchaineRechercheCompteur = [Environment]::TickCount + 10000
-    $l = [Math]::Min(500, [int](($r.R - $r.L) / 3)); $ht = [Math]::Min(500, [int](($r.B - $r.T) / 2))
+    $l = [Math]::Min([Math]::Max(500, 170 * $script:Gui), [int](($r.R - $r.L) / 3)); $ht = [Math]::Min([Math]::Max(500, 170 * $script:Gui), [int](($r.B - $r.T) / 2))
     $zone = New-Object System.Drawing.Rectangle ($r.R - $l), ($r.B - $ht), $l, $ht
     $f = [Glyphes]::TrouverCompteur($zone)
     if ($f) {
@@ -206,8 +227,41 @@ function Lire-Compteur {
   }
   return $t
 }
+# ---------------------------- Vote party ----------------------------
+# Meme fonctionnement que la ferme : quand "VoteParty 909/1250" repart de zero, le serveur donne des objets qui prennent
+# des slots : le compteur n'atteindrait plus le seuil. On baisse le seuil de $VoteSlots x 64, une seule fois par session.
+# Une baisse doit etre lue 2 fois de suite.
+$script:VoteAvant = $null; $script:VoteDoute = $null; $script:VoteReduit = $false; $script:ProchaineLectureVote = 0
+function Lire-VoteParty {
+  $r = Fenetre-Rect; $larg = $r.R - $r.L
+  if ($larg -lt 200) { return '' }
+  $zone = New-Object System.Drawing.Rectangle ($r.L + [int]($larg * 0.15)), ($r.T + 8), ([int]($larg * 0.7)), (53 * $script:Gui)
+  return [Glyphes]::LireCouleur($zone, 137, 214, 250, $script:Gui)
+}
+function Suivre-VoteParty {
+  if ($VoteSlots -le 0 -or $script:VoteReduit) { return }
+  if ([Environment]::TickCount -lt $script:ProchaineLectureVote) { return }
+  $script:ProchaineLectureVote = [Environment]::TickCount + 15000
+  $t = Lire-VoteParty
+  if ($t -notmatch '(\d+)/(\d+)') { return }
+  $v = [int]$Matches[1]; $total = [int]$Matches[2]
+  if ($null -ne $script:VoteDoute) {
+    $ok = $v -le $script:VoteDoute + 50
+    $script:VoteDoute = $null
+    if ($ok) {
+      $script:VoteReduit = $true
+      $ancien = $VenteSeuil
+      $script:VenteSeuil = [Math]::Max(64, $VenteSeuil - 64 * $VoteSlots)
+      Write-Host ("Vote party atteint : {0} slots en moins, vente a {1} objets au lieu de {2}." -f $VoteSlots, $script:VenteSeuil, $ancien)
+      $script:VoteAvant = $v; return
+    }
+  }
+  if ($null -ne $script:VoteAvant -and $v -lt $script:VoteAvant -and $script:VoteAvant -ge $total - 150 -and $v -le 150) { $script:VoteDoute = $v }
+  $script:VoteAvant = $v
+}
 function Verifier-Vente {
   if ($VenteSeuil -le 0) { return }
+  Suivre-VoteParty
   $maintenant = [Environment]::TickCount
   if ($maintenant -lt $script:ProchaineVerif) { return }
   $script:ProchaineVerif = $maintenant + 1000
@@ -224,11 +278,11 @@ function Verifier-Vente {
   Write-Host ("  essai de vente ({0} objets)" -f $n)
   $tenu = $script:Tenu
   if ($tenu) { Bouton $false }                                                            # on lache le bouton de l'autoclick
-  [Entree]::Touche(0x02, $true); Start-Sleep -Milliseconds 30; [Entree]::Touche(0x02, $false)   # slot 1 : le Dial
+  [Entree]::Touche($script:Slots[0], $true); Start-Sleep -Milliseconds 30; [Entree]::Touche($script:Slots[0], $false)   # slot 1 : le Dial
   Start-Sleep -Milliseconds 150
   [Entree]::ClicGauche($true); Start-Sleep -Milliseconds 20; [Entree]::ClicGauche($false)         # le clic de vente
   Start-Sleep -Milliseconds $VenteMs
-  $sc = [byte](0x01 + $SlotRetour)                                                         # touches 1..9 : scancodes 0x02..0x0A
+  $sc = $script:Slots[$SlotRetour - 1]
   [Entree]::Touche($sc, $true); Start-Sleep -Milliseconds 30; [Entree]::Touche($sc, $false)
   Start-Sleep -Milliseconds 50
   if ($tenu) { Bouton $true }
@@ -247,7 +301,7 @@ function Lire-Coord {
   $r = New-Object Entree+RECT; [void][Entree]::GetWindowRect($h, [ref]$r)
   if ($null -eq $script:ZonesCoord) {
     # cherchees une fois dans le coin en haut a gauche (n'importe quelle place ou taille), sinon places par defaut
-    $coin = New-Object System.Drawing.Rectangle $r.L, $r.T, ([Math]::Min(900, $r.R - $r.L)), ([Math]::Min(600, $r.B - $r.T))
+    $coin = New-Object System.Drawing.Rectangle $r.L, $r.T, ([Math]::Min([Math]::Max(900, 300 * $script:Gui), $r.R - $r.L)), ([Math]::Min([Math]::Max(600, 200 * $script:Gui), $r.B - $r.T))
     $tc = [Glyphes]::TrouverCoordonnees($coin)
     if ($tc) { [Glyphes]::Echelle = $tc[0]; $script:ZonesCoord = foreach ($k in 3, 4, 5) { New-Object System.Drawing.Rectangle $tc[1], ($tc[$k] - 1), $tc[2], ($tc[6] + 2) } }
     else { [Glyphes]::Echelle = 2; $script:ZonesCoord = foreach ($dy in 44, 66, 88) { New-Object System.Drawing.Rectangle 44, $dy, 120, 16 } }
@@ -334,9 +388,13 @@ function Verifier-TP {
   $script:ProchaineTP = [Environment]::TickCount + 500
   $p = Lire-Coord
   if ($null -eq $p) { return }
-  if ($null -eq $script:PosRef) { $script:PosRef = $p; return }
+  $mtn = [Environment]::TickCount
+  if ($null -eq $script:PosRef) { $script:PosRef = $p; $script:TempsPosRef = $mtn; return }
   $d = 0; for ($i = 0; $i -lt 3; $i++) { $d = [Math]::Max($d, [Math]::Abs($p[$i] - $script:PosRef[$i])) }
-  if ($d -le $TPBlocs) { $script:Suspect = 0; $script:PosRef = $p; return }
+  # dans la mine, le joueur marche : on ajoute ce qu'il peut parcourir (8 blocs/s au plus) depuis la VRAIE derniere lecture.
+  # 10/11/2026 : la macro a ete figee 3,5 s, le joueur a marche 15 blocs, et c'etait compte comme une teleportation.
+  $permis = $TPBlocs; if ($Mine -gt 0) { $permis += 8 * ($mtn - $script:TempsPosRef) / 1000.0 }
+  if ($d -le $permis) { $script:Suspect = 0; $script:PosRef = $p; $script:TempsPosRef = $mtn; return }
   $script:Suspect++
   if ($script:Suspect -lt 2) { return }
   Relacher-Tout; $script:Arret = $true
@@ -344,11 +402,109 @@ function Verifier-TP {
   Write-Host ("TELEPORTE : position {0} {1} {2} -> {3} {4} {5}, arret." -f $script:PosRef[0], $script:PosRef[1], $script:PosRef[2], $p[0], $p[1], $p[2])
 }
 
+# ------------------------- Mine en ligne droite -------------------------
+# Le joueur avance (touche Z) en minant. Les coordonnees en haut a gauche sont lues toutes les 0,5 s :
+# s'il n'a pas avance d'un bloc depuis $MurS secondes, c'est le mur du fond. Alors /home <HomeMine>
+# (commande autorisee par l'utilisateur le 06/11/2026), verification que la position est revenue au depart,
+# et on recommence. Le home doit avoir ete pose en regardant le tunnel : le serveur rend aussi la direction.
+$script:Progres = $null; $script:ProchainPas = 0; $script:DepartMine = $null; $script:Retours = 0
+function Taper-Commande($texte) {
+  Relacher-Tout
+  if (-not (Au-Premier-Plan)) { Write-Host "Le jeu n'est pas visible : /$texte annule, arret." -ForegroundColor Red; $script:Arret = $true; return $false }
+  Add-Content $script:JournalGains ("{0:HH:mm:ss.fff} commande /{1}" -f (Get-Date), $texte)
+  Start-Sleep -Milliseconds (Get-Random -Minimum 250 -Maximum 600)
+  [Entree]::Touche($script:Cles.chat, $true); Start-Sleep -Milliseconds (Get-Random -Minimum 30 -Maximum 70); [Entree]::Touche($script:Cles.chat, $false)   # ouvre le chat
+  Start-Sleep -Milliseconds (Get-Random -Minimum 600 -Maximum 900)
+  foreach ($ch in ('/' + $texte).ToCharArray()) {
+    if ([Fond]::Actif) { [Fond]::Caractere($ch) } else { [System.Windows.Forms.SendKeys]::SendWait(($(if ('+^%~(){}[]'.Contains([string]$ch)) { '{' + $ch + '}' } else { [string]$ch }))) }
+    Start-Sleep -Milliseconds (Get-Random -Minimum 40 -Maximum 120)
+  }
+  Start-Sleep -Milliseconds (Get-Random -Minimum 200 -Maximum 450)
+  [Entree]::Touche(0x1C, $true); Start-Sleep -Milliseconds (Get-Random -Minimum 30 -Maximum 70); [Entree]::Touche(0x1C, $false)   # Entree
+  return $true
+}
+function Retour-Mine {
+  if ($Mine -le 0) { Write-Host ("Mur atteint : retour au depart (/home {0})." -f $HomeMine) -ForegroundColor Cyan }
+  if (-not (Taper-Commande "home $HomeMine")) { return }
+  if (Dormir 2500) { if ($script:Arret) { return } }
+  $p = $null; $d = 99
+  for ($n = 0; $n -lt 5; $n++) {                                           # le serveur peut mettre quelques secondes a teleporter
+    $p = Lire-Coord
+    if ($null -ne $p) { $d = 0; for ($i = 0; $i -lt 3; $i++) { $d = [Math]::Max($d, [Math]::Abs($p[$i] - $script:DepartMine[$i])) }; if ($d -le 2) { break } }
+    [void](Dormir 1000); if ($script:Arret) { return }
+  }
+  if ($null -eq $p) { Write-Host "Coordonnees illisibles apres /home : arret." -ForegroundColor Red; $script:Arret = $true; return }
+  if ($d -gt 2) { Write-Host ("Pas revenu au depart apres /home {0} (X {1} Y {2} Z {3}, depart {4} {5} {6}) : arret." -f $HomeMine, $p[0], $p[1], $p[2], $script:DepartMine[0], $script:DepartMine[1], $script:DepartMine[2]) -ForegroundColor Red; $script:Arret = $true; return }
+  $script:Retours++
+  Write-Host ("Au depart de la mine ({0} retour{1}). On repart." -f $script:Retours, $(if ($script:Retours -gt 1) { 's' } else { '' })) -ForegroundColor Green
+  $script:PosRef = $null; $script:Progres = $null                          # le saut du /home n'est pas une teleportation suspecte
+  Start-Sleep -Milliseconds (Get-Random -Minimum 300 -Maximum 700)
+  if ($Mode -eq 'maintien') { Bouton $true }
+  Enfoncer $script:Cles.avant
+}
+# ------------------------------ Mine 3x3 ------------------------------
+# Position lue toutes les 0,1 s. Au bout du tunnel le joueur tombe de -3 a -5 devant un mur d'obsidienne : des que deux lectures
+# de suite donnent un Y plus bas, tout est relache, attente de $MineAttenteS s, puis /home mine1 ou mine2 et on repart.
+# Hors de la mine (teleporte, autre monde) ou bloque : arret, aucune commande tapee.
+$script:EnAttenteMine = $false; $script:DouteChute = 0
+function Stop-Mine($msg) {
+  Relacher-Tout; $script:Arret = $true
+  [console]::Beep(880, 250); [console]::Beep(660, 400)
+  Write-Host ("Mine : {0}, arret." -f $msg) -ForegroundColor Red
+}
+function Fin-Mine {
+  Relacher-Tout
+  $script:PosRef = $null; $script:Progres = $null                          # la chute n'est pas une teleportation suspecte
+  $script:EnAttenteMine = $true
+  Write-Host ("Bout de la mine : attente de {0} s, puis /home {1}." -f $MineAttenteS, $HomeMine) -ForegroundColor Cyan
+  $fin = [Environment]::TickCount + $MineAttenteS * 1000
+  while ([Environment]::TickCount -lt $fin -and -not $script:Arret) { [void](Dormir 250) }
+  if (-not $script:Arret) { Retour-Mine }
+  $script:EnAttenteMine = $false
+}
+function Verifier-Chute {
+  if ($Mine -le 0 -or [Environment]::TickCount -lt $script:ProchainPas) { return }
+  $script:ProchainPas = [Environment]::TickCount + 100
+  $p = Lire-Coord
+  if ($null -eq $p) { return }
+  if ($p[0] -lt $MineXMin -or $p[0] -gt $MineXMax -or $p[1] -gt $MineY + 1 -or $p[1] -lt $MineY - 3) {
+    $script:DouteChute = 0; $script:HorsMine++
+    if ($script:HorsMine -ge 3) { Stop-Mine ("hors de la mine (X {0} Y {1} Z {2})" -f $p[0], $p[1], $p[2]) }
+    return
+  }
+  $script:HorsMine = 0
+  if ($p[1] -lt $MineY) {
+    $script:DouteChute++
+    if ($script:DouteChute -ge 2) { $script:DouteChute = 0; Fin-Mine }
+    return
+  }
+  $script:DouteChute = 0
+  $mtn = [Environment]::TickCount
+  if ($null -eq $script:Progres) { $script:Progres = @{ Pos = $p; T = $mtn }; return }
+  $avance = ($p[0] - $script:Progres.Pos[0]) * $MineSens
+  if ($avance -ge 1) { $script:Progres = @{ Pos = $p; T = $mtn }; return }
+  if ($avance -le -4) { Stop-Mine "le joueur recule : verifie le regard enregistre dans /home $HomeMine"; return }
+  if ($mtn - $script:Progres.T -ge $MineBloqueS * 1000) { Stop-Mine ("plus aucune avance depuis {0} s (X {1})" -f $MineBloqueS, $p[0]) }
+}
+$script:HorsMine = 0
+
+function Verifier-Mur {
+  if ($Avancer -ne 1 -or $Mine -gt 0 -or [Environment]::TickCount -lt $script:ProchainPas) { return }
+  $script:ProchainPas = [Environment]::TickCount + 500
+  $p = Lire-Coord
+  if ($null -eq $p) { return }
+  $mtn = [Environment]::TickCount
+  if ($null -eq $script:Progres) { $script:Progres = @{ Pos = $p; T = $mtn }; return }
+  $d = [Math]::Max([Math]::Abs($p[0] - $script:Progres.Pos[0]), [Math]::Abs($p[2] - $script:Progres.Pos[2]))
+  if ($d -ge 1) { $script:Progres = @{ Pos = $p; T = $mtn }; return }
+  if ($mtn - $script:Progres.T -ge $MurS * 1000) { Retour-Mine }
+}
+
 # ------------------------------ Autoclick ------------------------------
 function Autoclick {
   if ($script:PidsJeu.Count -eq 0) { Write-Host "Le jeu n'est pas lance." -ForegroundColor Red; return }
   $txtMode = if ($Mode -eq 'maintien') { 'bouton maintenu' } else { "un clic toutes les $IntervalleMs ms ({0:N1} par seconde)" -f (1000.0 / $IntervalleMs) }
-  Write-Host ("Minage : clic {0}, {1}{2}{3}." -f $Bouton, $txtMode, $(if ($DureeMaxS -gt 0) { ", $DureeMaxS s max" } else { '' }), $(if ($ClicsMax -gt 0) { ", $ClicsMax clics max" } else { '' }))
+  if ($Mine -gt 0) { Write-Host "Mine 3x3 : clic gauche maintenu en avancant." } else { Write-Host ("Autoclick : clic {0}, {1}{2}{3}." -f $Bouton, $txtMode, $(if ($DureeMaxS -gt 0) { ", $DureeMaxS s max" } else { '' }), $(if ($ClicsMax -gt 0) { ", $ClicsMax clics max" } else { '' })) }
   Write-Host "Dans le jeu : ferme le chat et le menu (Echap), puis $NomPause. ($NomArret = annuler)"
   while ($true) {
     if (-not (Attendre-F7)) { return }
@@ -356,17 +512,30 @@ function Autoclick {
     Write-Host "$NomPause recu, mais le jeu n'est pas au premier plan : clique dans le jeu puis $NomPause."
   }
   Start-Sleep -Milliseconds 300
-  Write-Host "Minage lance."
+  Write-Host $(if ($Mine -gt 0) { "Mine lancee." } else { "Autoclick lance." })
   Detecter-Interface
   Suivre-Argent $true
   if ($StopTP -gt 0) {
     $p0 = Lire-Coord
     if ($null -eq $p0) { Write-Host "Coordonnees illisibles en haut a gauche : arret si teleporte desactive (affiche-les dans Lunar)."; $script:StopTP = 0 }
-    else { $script:PosRef = $p0; Write-Host ("Arret si teleporte : actif, au-dela de {3} bloc(s) (depart {0} {1} {2})." -f $p0[0], $p0[1], $p0[2], $TPBlocs) }
+    else { $script:PosRef = $p0; $script:TempsPosRef = [Environment]::TickCount; Write-Host ("Arret si teleporte : actif, au-dela de {3} bloc(s) (depart {0} {1} {2})." -f $p0[0], $p0[1], $p0[2], $TPBlocs) }
+  }
+  if ($Mine -gt 0) {
+    $p = Lire-Coord
+    if ($null -eq $p) { Write-Host "Mine : coordonnees illisibles en haut a gauche (affiche-les dans Lunar), arret." -ForegroundColor Red; return }
+    if ($p[1] -ne $MineY -or $p[0] -lt $MineXMin -or $p[0] -gt $MineXMax) { Write-Host ("Mine : place-toi dans le tunnel (Y {0}, X entre -140 et 128) ; lu X {1} Y {2}, arret." -f $MineY, $p[0], $p[1]) -ForegroundColor Red; return }
+    $script:DepartMine = @($MineDepartX, $MineY, $p[2])
+    Write-Host ("Mine {0} : depart X {1}, retour par /home {2} apres {3} s au fond." -f $Mine, $MineDepartX, $HomeMine, $MineAttenteS)
+  }
+  elseif ($Avancer -eq 1) {
+    $script:DepartMine = Lire-Coord
+    if ($null -eq $script:DepartMine) { Write-Host "Mine en ligne droite : coordonnees illisibles en haut a gauche (affiche-les dans Lunar). Arret." -ForegroundColor Red; return }
+    Write-Host ("Mine en ligne droite : depart X {0} Y {1} Z {2}. Au mur ({3} s sans avancer) : /home {4}." -f $script:DepartMine[0], $script:DepartMine[1], $script:DepartMine[2], $MurS, $HomeMine)
   }
   $script:Actif.Start()
   $clics = 0; $prochainBilan = [Environment]::TickCount + 5000
   if ($Mode -eq 'maintien') { Bouton $true }
+  if ($Avancer -eq 1) { Enfoncer $script:Cles.avant }
   while (-not $script:Arret) {
     if ($Mode -eq 'maintien') {
       if (Dormir 50) { continue }
@@ -379,6 +548,8 @@ function Autoclick {
     }
     Verifier-Vente
     Verifier-TP
+    Verifier-Chute
+    Verifier-Mur
     [void](Surveiller-Verification)
     Suivre-Gains
     Suivre-Argent
@@ -390,7 +561,7 @@ function Autoclick {
   if ($Mode -ne 'maintien') { Write-Host ("clics : {0}" -f $clics) }
   Suivre-Argent $true
   Suivre-Gains $true
-  Write-Host ("Minage termine : {0:N0} s actives." -f $script:Actif.Elapsed.TotalSeconds)
+  Write-Host ("{2} termine : {0:N0} s actives{1}." -f $script:Actif.Elapsed.TotalSeconds, $(if ($Avancer -eq 1) { ", $($script:Retours) retour(s) au depart" } else { '' }), $(if ($Mine -gt 0) { 'Mine' } else { 'Autoclick' }))
 }
 
 try { Autoclick }

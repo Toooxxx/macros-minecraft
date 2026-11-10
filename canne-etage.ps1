@@ -24,7 +24,7 @@
 # =====================================================================
 
 # Reglages passes par le menu (Ferme-canne.exe). Sans eux, ceux du bloc A REGLER s'appliquent.
-param([int]$EtageDepart = 0, [int]$VenteSeuil = -1, [int]$VenteMs = -1, [int]$Pas = 0, [int]$MargeEchelle = -1, [string]$RecalerRegard = '', [int]$Tours = 0, [int]$TouchePause = 0x76, [int]$ToucheArret = 0x77, [int]$RepondreVerif = 0, [int]$Sons = 1)
+param([int]$EtageDepart = 0, [int]$VenteSeuil = -1, [int]$VenteMs = -1, [int]$Pas = 0, [int]$MargeEchelle = -1, [string]$RecalerRegard = '', [int]$Tours = 0, [int]$TouchePause = 0x76, [int]$ToucheArret = 0x77, [int]$RepondreVerif = 0, [int]$Sons = 1, [int]$AntiLag = 0, [int]$AntiLagS = 60, [int]$VoteSlots = 2, [int]$Tester = 0, [int]$StopTP = 0, [int]$TPBlocs = 3)
 
 # ------------------------------ A REGLER -----------------------------
 $Config = @{
@@ -71,8 +71,10 @@ Add-Type -AssemblyName System.Windows.Forms
 $NomPause = ([System.Windows.Forms.Keys]$TouchePause).ToString()   # nom affiche des touches (F7, F8, Pause...)
 $NomArret = ([System.Windows.Forms.Keys]$ToucheArret).ToString()
 
-# Codes de POSITION des touches : Z/Q/S/D en AZERTY.
-$Touche = @{ avant = 0x11; arriere = 0x1F; gauche = 0x1E; droite = 0x20 }
+# Codes de POSITION des touches, lus dans les reglages du jeu (touches.ps1).
+. (Join-Path $Dossier 'securite.ps1')                             # arret si teleporte (option du menu)
+. (Join-Path $Dossier 'touches.ps1')
+$Touche = @{ avant = $script:Cles.avant; arriere = $script:Cles.arriere; gauche = $script:Cles.gauche; droite = $script:Cles.droite }
 
 # Pour chaque orientation : axe et signe de "droite" et de "avant" (0 = X, 2 = Z).
 $TableAxes = @{
@@ -170,8 +172,12 @@ public static class Interface {
   public static int Taille(Bitmap bmp) {
     var bd = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
     var b = new byte[bd.Stride * bmp.Height]; Marshal.Copy(bd.Scan0, b, 0, b.Length); bmp.UnlockBits(bd);
-    int w = bmp.Width, h = bmp.Height, st = bd.Stride, cx = w / 2, meilleure = 0; double mieux = 0.6;
-    for (int s = 1; s <= 4; s++) {
+    int w = bmp.Width, h = bmp.Height, st = bd.Stride, cx = w / 2; double mieux = 0.6;
+    // jusqu'a 12 : en 4K le jeu peut monter a 9 (reglage Auto). Un multiple de la vraie taille retombe aussi sur les cases :
+    // on garde donc la plus petite taille presque aussi bonne que la meilleure.
+    var scores = new double[13];
+    for (int s = 1; s <= 12; s++) {
+      scores[s] = 9;
       double dPer = 0, dAutre = 0; int n = 0;
       foreach (int dy in new[] { 1, 2 }) {
         int y = h - dy * s - s / 2; if (y < 0) continue;
@@ -184,9 +190,12 @@ public static class Interface {
       }
       if (n == 0) continue;
       double sc = (dPer + 1) / (dAutre + 1);
-      if (sc < mieux) { mieux = sc; meilleure = s; }
+      scores[s] = sc;
+      if (sc < mieux) mieux = sc;
     }
-    return meilleure;
+    if (mieux >= 0.6) return 0;
+    for (int s = 1; s <= 12; s++) if (scores[s] < 0.6 && scores[s] <= mieux * 1.6) return s;
+    return 0;
   }
 }
 
@@ -197,7 +206,11 @@ public static class Glyphes {
   public const int Seuil = 225;
   public static int Echelle = 2;   // taille du texte des coordonnees (2 chez l auteur) ; trouvee par TrouverCoordonnees
 
+  [DllImport("shcore.dll")] static extern int SetProcessDpiAwareness(int v);
+  [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
   public static void Charger(string fichier) {
+    // Zoom de Windows (souvent 150 % en 4K) : sans ca, Windows ment sur la position de la fenetre et toutes les zones lues sont fausses.
+    try { SetProcessDpiAwareness(2); } catch { try { SetProcessDPIAware(); } catch { } }
     foreach (var l in System.IO.File.ReadAllLines(fichier)) {
       if (l.Length < 3 || l[0] == '#') continue;
       Modeles[l.Substring(2)] = l[0];
@@ -265,7 +278,7 @@ public static class Glyphes {
     if (xl < 0) return null;
     // pour chaque taille possible : une bande juste assez large pour "X: -123456789" (11 caracteres de 6 pixels
     // de police) ; plus a droite, Lunar dessine la boussole (- / W / B...) sur les memes lignes (26/10/2026)
-    for (int e = 1; e <= 4; e++) {
+    for (int e = 1; e <= 12; e++) {
       int xr = Math.Min(w, xl + 70 * e);
       var ok = new bool[h];
       for (int y = 0; y < h; y++) for (int x = xl; x < xr; x++) if (px(x, y)) { ok[y] = true; break; }
@@ -324,40 +337,57 @@ public static class Glyphes {
     var b = new byte[bd.Stride * bmp.Height]; Marshal.Copy(bd.Scan0, b, 0, b.Length); bmp.UnlockBits(bd);
     int w = bmp.Width, h = bmp.Height, st = bd.Stride;
     Func<int, int, bool> px = (x, y) => { int o = y * st + x * 3; return b[o] >= Seuil && b[o + 1] >= Seuil && b[o + 2] >= Seuil; };
-    var ok = new bool[h];
-    for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) if (px(x, y)) { ok[y] = true; break; }
-    int[] meilleur = null; int droite = -1;
-    int yy = 0;
-    while (yy < h) {
-      if (!ok[yy]) { yy++; continue; }
-      int haut = yy; while (yy < h && ok[yy]) yy++;
-      int hb = yy - haut, e = (int)Math.Round(hb / 7.0);
-      if (e < 1 || e > 4 || Math.Abs(hb - 7 * e) > e / 2) continue;
-      // mots de la bande
-      var mots = new List<List<int[]>>(); int x0 = -1, fin = -100;
-      for (int x = 0; x <= w; x++) {
-        bool v = false;
-        if (x < w) for (int y = haut; y < haut + hb; y++) if (px(x, y)) { v = true; break; }
-        if (v && x0 < 0) { if (x - fin >= 3 * e || mots.Count == 0) mots.Add(new List<int[]>()); x0 = x; }
-        if (!v && x0 >= 0) { mots[mots.Count - 1].Add(new[] { x0, x }); fin = x; x0 = -1; }
+    // Taches de pixels blancs (8-voisins), chacune avec son cadre. 27/10/2026 : l'ancienne recherche par lignes
+    // entieres melangeait "2176" avec les lettres des touches (module ZQSD) a la meme hauteur sur le 2e ecran :
+    // ligne trop haute, compteur jamais trouve, plus aucune vente.
+    var vu = new bool[w * h]; var taches = new List<int[]>();   // { gauche, haut, droite (exclue), bas (exclu) }
+    var pile = new Stack<int>();
+    for (int y0 = 0; y0 < h; y0++) for (int x0 = 0; x0 < w; x0++) {
+      if (vu[y0 * w + x0] || !px(x0, y0)) continue;
+      int g = x0, hh = y0, d = x0, bb = y0, n = 0; vu[y0 * w + x0] = true; pile.Push(y0 * w + x0);
+      while (pile.Count > 0) {
+        int k = pile.Pop(), x = k % w, y = k / w; n++;
+        if (x < g) g = x; if (x > d) d = x; if (y < hh) hh = y; if (y > bb) bb = y;
+        for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) {
+          int nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          int nk = ny * w + nx; if (!vu[nk] && px(nx, ny)) { vu[nk] = true; pile.Push(nk); }
+        }
       }
-      foreach (var mot in mots) {
-        var sb = new StringBuilder();
-        foreach (var c in mot) {
-          int larg = (c[1] - c[0] + e - 1) / e;
-          var m = new StringBuilder();
-          for (int gy = 0; gy < 8; gy++) {
-            if (gy > 0) m.Append('/');
-            for (int gx = 0; gx < larg; gx++) { int cx = c[0] + gx * e + e / 2, cy = haut + gy * e + e / 2; m.Append(cx < w && cy < h && px(cx, cy) ? '#' : '.'); }
-          }
-          char ch; sb.Append(Modeles.TryGetValue(m.ToString(), out ch) ? ch : '?');
+      if (n < 400) taches.Add(new[] { g, hh, d + 1, bb + 1 });
+    }
+    // chiffres : 7 rangees de haut (a l'echelle e) ; un nombre = chiffres alignes en haut, espaces de moins de 3e
+    var chiffres = taches.FindAll(t => { int ht = t[3] - t[1], e = (int)Math.Round(ht / 7.0); return e >= 1 && e <= 12 && Math.Abs(ht - 7 * e) <= e / 2 && t[2] - t[0] <= 6 * e; });
+    chiffres.Sort((p, q) => p[0].CompareTo(q[0]));
+    var pris = new bool[chiffres.Count];
+    int[] meilleur = null; int meilleurLong = 0, droite = -1;
+    for (int i = 0; i < chiffres.Count; i++) {
+      if (pris[i]) continue;
+      var mot = new List<int[]> { chiffres[i] }; pris[i] = true;
+      int e = (int)Math.Round((chiffres[i][3] - chiffres[i][1]) / 7.0);
+      for (int j = i + 1; j < chiffres.Count; j++) {
+        var der = mot[mot.Count - 1]; var c = chiffres[j];
+        if (pris[j] || Math.Abs(c[1] - der[1]) > e / 2 || Math.Abs((c[3] - c[1]) - (der[3] - der[1])) > e / 2) continue;
+        if (c[0] - der[2] >= 3 * e) break;
+        if (c[0] >= der[2]) { mot.Add(c); pris[j] = true; }
+      }
+      int haut = mot[0][1];
+      var sb = new StringBuilder();
+      foreach (var c in mot) {
+        int larg = (c[2] - c[0] + e - 1) / e;
+        var m = new StringBuilder();
+        for (int gy = 0; gy < 8; gy++) {
+          if (gy > 0) m.Append('/');
+          for (int gx = 0; gx < larg; gx++) { int cx = c[0] + gx * e + e / 2, cy = haut + gy * e + e / 2; m.Append(cx < w && cy < h && px(cx, cy) ? '#' : '.'); }
         }
-        int fx = mot[mot.Count - 1][1];
-        if (System.Text.RegularExpressions.Regex.IsMatch(sb.ToString(), @"^\d{1,5}$") && fx > droite) {
-          droite = fx;
-          int gauche = Math.Max(0, fx - 6 * e * 6);                                  // jusqu'a 6 chiffres, cale a droite
-          meilleur = new[] { e, gauche, Math.Max(0, haut - 1), Math.Min(w - gauche, fx - gauche + 2 * e), 8 * e + 2 };
-        }
+        char ch; sb.Append(Modeles.TryGetValue(m.ToString(), out ch) ? ch : '?');
+      }
+      if (!System.Text.RegularExpressions.Regex.IsMatch(sb.ToString(), @"^\d{1,5}$")) continue;
+      // le compteur : le nombre le plus long (une lettre isolee des touches peut ressembler a un chiffre), puis le plus a droite
+      int fx = mot[mot.Count - 1][2], lg = Math.Min(sb.Length, 2);
+      if (lg > meilleurLong || (lg == meilleurLong && fx > droite)) {
+        meilleurLong = lg; droite = fx;
+        int gauche = Math.Max(0, fx - 6 * e * 6);                                  // jusqu'a 6 chiffres, cale a droite
+        meilleur = new[] { e, gauche, Math.Max(0, haut - 1), Math.Min(w - gauche, fx - gauche + 6 * e), 8 * e + 2 };   // un peu de marge a droite si le nombre s'allonge
       }
     }
     return meilleur;
@@ -497,7 +527,7 @@ function Clic($bas) { [Entree]::ClicGauche($bas); $script:ClicTenu = $bas }
 
 # Le jeu est reconnu par son PROGRAMME (javaw), pas par le titre de fenetre
 # (une video YouTube "Minecraft" dans Chrome a aussi ce mot dans son titre).
-$script:PidsJeu = @(Get-Process -Name $Config.ProgrammeJeu -ErrorAction SilentlyContinue | ForEach-Object { [uint32]$_.Id })
+$script:PidsJeu = @(Garder-Lunar (Get-Process -Name $Config.ProgrammeJeu -ErrorAction SilentlyContinue) | ForEach-Object { [uint32]$_.Id })
 . (Join-Path $Dossier 'verification.ps1')                       # gros message au centre (verification) : images seulement
 function Au-Premier-Plan { return $script:PidsJeu -contains [Entree]::PidDe([Entree]::FenetrePremierPlan()) }
 
@@ -524,7 +554,7 @@ function Verifier {
     Write-Host "PAUSE ($NomPause = reprendre, $NomArret = arreter)" -ForegroundColor Yellow
     if (-not (Attendre-F7)) { return $true }
     Write-Host "Reprise" -ForegroundColor Green
-    $script:DernierePos = $null
+    $script:DernierePos = $null; Oublier-TP
     return $true
   }
   if (-not (Au-Premier-Plan)) {
@@ -544,9 +574,11 @@ function Verifier {
     Write-Host "Reviens dans le jeu, ferme le menu (Echap), puis $NomPause." -ForegroundColor Yellow
     if (-not (Attendre-F7)) { return $true }
     Write-Host "Reprise" -ForegroundColor Green
-    $script:DernierePos = $null
+    $script:DernierePos = $null; Oublier-TP
     return $true
   }
+  Verifier-TP
+  if ($script:Arret) { return $true }
   return $false
 }
 
@@ -574,7 +606,7 @@ function Preparer-Zones {
   $h = [IntPtr]::Zero
   foreach ($p in $script:PidsJeu) { $m = (Get-Process -Id $p -ErrorAction SilentlyContinue).MainWindowHandle; if ($m -ne [IntPtr]::Zero) { $h = $m } }
   $r = New-Object Entree+RECT; [void][Entree]::GetWindowRect($h, [ref]$r)
-  $coin = New-Object System.Drawing.Rectangle $r.L, $r.T, ([Math]::Min(900, $r.R - $r.L)), ([Math]::Min(600, $r.B - $r.T))
+  $coin = New-Object System.Drawing.Rectangle $r.L, $r.T, ([Math]::Min([Math]::Max(900, 300 * $script:Gui), $r.R - $r.L)), ([Math]::Min([Math]::Max(600, 200 * $script:Gui), $r.B - $r.T))
   $t = [Glyphes]::TrouverCoordonnees($coin)
   if ($t) {
     [Glyphes]::Echelle = $t[0]
@@ -603,7 +635,7 @@ function Coin-HautGauche {
   $h = [IntPtr]::Zero
   foreach ($p in $script:PidsJeu) { $m = (Get-Process -Id $p -ErrorAction SilentlyContinue).MainWindowHandle; if ($m -ne [IntPtr]::Zero) { $h = $m } }
   $r = New-Object Entree+RECT; [void][Entree]::GetWindowRect($h, [ref]$r)
-  return New-Object System.Drawing.Rectangle $r.L, $r.T, ([Math]::Max(1, [Math]::Min(900, $r.R - $r.L))), ([Math]::Max(1, [Math]::Min(600, $r.B - $r.T)))
+  return New-Object System.Drawing.Rectangle $r.L, $r.T, ([Math]::Max(1, [Math]::Min([Math]::Max(900, 300 * $script:Gui), $r.R - $r.L))), ([Math]::Max(1, [Math]::Min([Math]::Max(600, 200 * $script:Gui), $r.B - $r.T)))
 }
 $script:Journal = Join-Path $Dossier 'lectures.log'
 $script:NbCaptures = 0
@@ -693,6 +725,15 @@ function Controle-Chute($p) {
 $script:ProchaineVerifVente = 0
 $script:Ventes = 0; $script:DerniereVente = 0; $script:VenteBonus = 0; $script:Reussies = 0
 $script:VenteArmee = $true   # apres une vente : plus de vente tant que le compteur n'est pas redescendu sous le seuil
+# Dial vide (07/11/2026 : 2032 essais rates en 1 h 38) : apres 10 essais rates d'affilee, plus d'essai ;
+# a chaque etage suivant, 5 essais seulement, jusqu'a ce qu'une vente repasse.
+$script:EssaisRestants = 10; $script:DialVide = $false
+function Dial-Vide {
+  if (-not $script:DialVide) { Write-Host "Dial vide ? 10 ventes ratees d'affilee : plus d'essai de vente, 5 essais a chaque etage suivant." }
+  else { Write-Host "Dial toujours vide ? 5 essais rates : nouvel essai a l'etage suivant." }
+  $script:DialVide = $true
+  Add-Content $script:Journal ("{0:HH:mm:ss.fff} vente : dial vide ?, plus d'essai jusqu'a l'etage suivant" -f (Get-Date))
+}
 # ------------------------------ Argent ------------------------------
 # Argent affiche en haut de l'ecran (texte jaune, ex. "31.78M") : lu toutes les 30 s et ecrit
 # "argent : <nombre>" pour le menu, qui en tire les gains et le gain par heure.
@@ -703,7 +744,7 @@ function Lire-Argent {
   $r = New-Object Entree+RECT; [void][Entree]::GetWindowRect($h, [ref]$r)
   $larg = $r.R - $r.L
   if ($larg -lt 200) { return $null }
-  $zone = New-Object System.Drawing.Rectangle ($r.L + [int]($larg * 0.15)), ($r.T + 8), ([int]($larg * 0.7)), 110   # haut de l'ecran, au milieu
+  $zone = New-Object System.Drawing.Rectangle ($r.L + [int]($larg * 0.15)), ($r.T + 8), ([int]($larg * 0.7)), (37 * $script:Gui)   # haut de l'ecran, au milieu
   $t = [Glyphes]::LireCouleur($zone, 255, 188, 53, $script:Gui)
   if ($t -notmatch '(\d+(?:\.\d+)?)([KMB]?)$') { return $null }
   $mult = @{ '' = 1; 'K' = 1e3; 'M' = 1e6; 'B' = 1e9 }[$Matches[2]]
@@ -714,6 +755,41 @@ function Suivre-Argent($forcer = $false) {
   $script:ProchaineLectureArgent = [Environment]::TickCount + 30000
   $a = Lire-Argent
   if ($null -ne $a) { Write-Host ("argent : {0}" -f [long]$a) }
+}
+# ---------------------------- Vote party ----------------------------
+# "VoteParty 909/1250" en haut de l'ecran (texte bleu clair 137/214/250, sous l'argent). Quand il repart
+# de zero, le serveur donne 2 objets qui prennent des slots de l'inventaire : le compteur n'atteindrait
+# plus le seuil de vente. On baisse alors le seuil de $VoteSlots x 64, une seule fois par session
+# (les objets des vote party suivants s'empilent sur les premiers). Une baisse doit etre lue 2 fois de suite.
+$script:VoteAvant = $null; $script:VoteDoute = $null; $script:VoteReduit = $false; $script:ProchaineLectureVote = 0
+function Lire-VoteParty {
+  $r = Fenetre-Rect; $larg = $r.R - $r.L
+  if ($larg -lt 200) { return '' }
+  $zone = New-Object System.Drawing.Rectangle ($r.L + [int]($larg * 0.15)), ($r.T + 8), ([int]($larg * 0.7)), (53 * $script:Gui)
+  return [Glyphes]::LireCouleur($zone, 137, 214, 250, $script:Gui)
+}
+function Suivre-VoteParty {
+  if ($VoteSlots -le 0 -or $script:VoteReduit -or $Config.VenteSeuil -le 0) { return }
+  if ([Environment]::TickCount -lt $script:ProchaineLectureVote) { return }
+  $script:ProchaineLectureVote = [Environment]::TickCount + 15000
+  $t = Lire-VoteParty
+  if ($t -notmatch '(\d+)/(\d+)') { return }
+  $v = [int]$Matches[1]; $total = [int]$Matches[2]
+  if ($null -ne $script:VoteDoute) {
+    $ok = $v -le $script:VoteDoute + 50
+    $script:VoteDoute = $null
+    if ($ok) {
+      $script:VoteReduit = $true
+      $ancien = $Config.VenteSeuil
+      $Config.VenteSeuil = [Math]::Max(64, $Config.VenteSeuil - 64 * $VoteSlots)
+      Add-Content $script:Journal ("{0:HH:mm:ss.fff} vote party atteint : seuil de vente {1} -> {2}" -f (Get-Date), $ancien, $Config.VenteSeuil)
+      Write-Host ("Vote party atteint : {0} slots en moins, vente a {1} cannes au lieu de {2}." -f $VoteSlots, $Config.VenteSeuil, $ancien) -ForegroundColor Magenta
+      $script:VoteAvant = $v; return
+    }
+  }
+  if ($null -ne $script:VoteAvant -and $v -lt $script:VoteAvant -and $script:VoteAvant -ge $total - 150 -and $v -le 150) { $script:VoteDoute = $v }
+  if ($v -ne $script:VoteAvant) { Add-Content $script:Journal ("{0:HH:mm:ss.fff} vote party : {1}/{2}" -f (Get-Date), $v, $total) }
+  $script:VoteAvant = $v
 }
 # Compteur d'objets en bas a droite. La place mesuree chez l'auteur (100 px du bord droit, 174 du bas, taille 2)
 # est TOUJOURS lue en premier. La place trouvee automatiquement (pour un autre joueur) ne sert que si la place
@@ -751,7 +827,7 @@ function Lire-Compteur {
   # 3) recherche dans le coin en bas a droite, au plus toutes les 10 s
   if ($null -eq $script:CompteurAuto -and $script:EchecsCompteur -ge 5 -and [Environment]::TickCount -ge $script:ProchaineRechercheCompteur) {
     $script:ProchaineRechercheCompteur = [Environment]::TickCount + 10000
-    $l = [Math]::Min(500, [int](($r.R - $r.L) / 3)); $ht = [Math]::Min(500, [int](($r.B - $r.T) / 2))
+    $l = [Math]::Min([Math]::Max(500, 170 * $script:Gui), [int](($r.R - $r.L) / 3)); $ht = [Math]::Min([Math]::Max(500, 170 * $script:Gui), [int](($r.B - $r.T) / 2))
     $zone = New-Object System.Drawing.Rectangle ($r.R - $l), ($r.B - $ht), $l, $ht
     $f = [Glyphes]::TrouverCompteur($zone)
     if ($f) {
@@ -764,6 +840,7 @@ function Lire-Compteur {
 }
 function Verifier-Vente {
   Suivre-Argent
+  Suivre-VoteParty
   if ($Config.VenteSeuil -le 0) { return }
   $maintenant = [Environment]::TickCount
   if ($maintenant -lt $script:ProchaineVerifVente) { return }
@@ -772,24 +849,29 @@ function Verifier-Vente {
   if ($t -notmatch '^\d+$') { return }
   $n = [int]$t
   if ($n -lt $Config.VenteSeuil) {
-    if (-not $script:VenteArmee) { $script:Reussies++; Write-Host ("  vente reussie ({0} au total)" -f $script:Reussies) -ForegroundColor Magenta; Add-Content $script:Journal ("{0:HH:mm:ss.fff} vente reussie ({1} ms)" -f (Get-Date), ($Config.VenteMs + $script:VenteBonus)) }
+    if (-not $script:VenteArmee) {
+      $script:Reussies++; Write-Host ("  vente reussie ({0} au total)" -f $script:Reussies) -ForegroundColor Magenta; Add-Content $script:Journal ("{0:HH:mm:ss.fff} vente reussie ({1} ms)" -f (Get-Date), ($Config.VenteMs + $script:VenteBonus))
+      $script:EssaisRestants = 10
+      if ($script:DialVide) { $script:DialVide = $false; Write-Host "Dial de nouveau utilisable : ventes normales." }
+    }
     $script:VenteArmee = $true; $script:VenteBonus = 0; $script:Reussies = 0; return
   }
   # si la vente n'a pas marche (compteur toujours plein 3 s apres), nouvel essai, un peu plus long
-  if (-not $script:VenteArmee -and ($maintenant - $script:DerniereVente) -gt 1800) { $script:VenteArmee = $true;  Add-Content $script:Journal ("{0:HH:mm:ss.fff} vente : compteur toujours plein, nouvel essai ({1} ms)" -f (Get-Date), ($Config.VenteMs + $script:VenteBonus)) }
-  if ($n -gt 2304 -or -not $script:VenteArmee) { return }
+  if (-not $script:VenteArmee -and ($maintenant - $script:DerniereVente) -gt 1800) { $script:VenteArmee = $true;  Add-Content $script:Journal ("{0:HH:mm:ss.fff} vente : compteur toujours plein, nouvel essai ({1} ms)" -f (Get-Date), ($Config.VenteMs + $script:VenteBonus)); if ($script:EssaisRestants -le 0) { Dial-Vide } }
+  if ($n -gt 2304 -or -not $script:VenteArmee -or $script:EssaisRestants -le 0) { return }
   $script:VenteArmee = $false; $script:DerniereVente = $maintenant  # 2304 = 36 x 64 : au-dela, lecture fausse
+  $script:EssaisRestants--
   $script:Ventes++
   Add-Content $script:Journal ("{0:HH:mm:ss.fff} vente n {1} : {2} cannes" -f (Get-Date), $script:Ventes, $n)
   Write-Host ("  essai de vente ({0} cannes, {1} ms)" -f $n, ($Config.VenteMs + $script:VenteBonus)) -ForegroundColor Magenta
   # slot 1 (Dial en main), puis un vrai clic : le clic tenu est relache le plus brievement
   # possible et renfonce, ce qui fait un nouveau "clic gauche" avec le Dial (la vente).
-  [Entree]::Touche(0x02, $true); Start-Sleep -Milliseconds 30; [Entree]::Touche(0x02, $false)   # slot 1
+  [Entree]::Touche($script:Slots[0], $true); Start-Sleep -Milliseconds 30; [Entree]::Touche($script:Slots[0], $false)   # slot 1
   Start-Sleep -Milliseconds 150                                                                  # le temps que le serveur voie le Dial en main (3 ticks)
   [Entree]::ClicGauche($false); Start-Sleep -Milliseconds 20; [Entree]::ClicGauche($true)        # relache / renfonce
   $script:ClicTenu = $true
   Start-Sleep -Milliseconds $Config.VenteMs                                                      # Dial encore en main
-  [Entree]::Touche(0x03, $true); Start-Sleep -Milliseconds 30; [Entree]::Touche(0x03, $false)   # slot 2
+  [Entree]::Touche($script:Slots[1], $true); Start-Sleep -Milliseconds 30; [Entree]::Touche($script:Slots[1], $false)   # slot 2
   $script:ProchaineVerifVente = [Environment]::TickCount + 1200   # le temps que le compteur redescende
 }
 # ----------------------------- Mouvements -----------------------------
@@ -952,7 +1034,10 @@ function Lire-XYZ {
 }
 
 # Place le personnage a $cible (+/- 0,2 bloc) sur l'axe "avant", par petits appuis Z / S.
-function Centrer-Precis($cible) {
+# $axe : 'av' (avant/arriere, Z/S) ou 'lat' (gauche/droite, Q/D).
+function Centrer-Precis($cible, $axe = 'av') {
+  $plus = if ($axe -eq 'lat') { $Touche.droite } else { $Touche.avant }
+  $moins = if ($axe -eq 'lat') { $Touche.gauche } else { $Touche.arriere }
   [Entree]::Touche(0x3D, $true); Start-Sleep -Milliseconds 60; [Entree]::Touche(0x3D, $false)   # F3
   Start-Sleep -Milliseconds 400
   try {
@@ -960,13 +1045,13 @@ function Centrer-Precis($cible) {
     for ($essai = 0; $essai -lt 25 -and -not $script:Arret; $essai++) {
       $p = Lire-XYZ
       if ($null -eq $p) { Write-Host "Position precise illisible dans F3 : pas de centrage." -ForegroundColor Yellow; return }
-      $pos = $p[$Axes.av]
-      $reste = ($cible - $pos) * $Axes.avSigne
+      $pos = $p[$Axes[$axe]]
+      $reste = ($cible - $pos) * $Axes[$axe + 'Signe']
       Add-Content $script:Journal ("{0:HH:mm:ss.fff} centrage precis : {1:N3} (cible {2:N1})" -f (Get-Date), $pos, $cible)
       if ([Math]::Abs($reste) -le 0.2) { return }
       if ($null -ne $avant -and [Math]::Abs($pos - $avant) -lt 0.02) { $duree = [Math]::Min(150, $duree + 20) }   # n'a pas bouge : appui plus long
       $avant = $pos
-      Enfoncer $(if ($reste -gt 0) { $Touche.avant } else { $Touche.arriere })
+      Enfoncer $(if ($reste -gt 0) { $plus } else { $moins })
       Start-Sleep -Milliseconds $duree
       Lacher
       Start-Sleep -Milliseconds 350   # le temps de s'arreter
@@ -979,36 +1064,65 @@ function Centrer-Precis($cible) {
   }
 }
 
+# @(direction, hauteur) lues sur la ligne Facing de F3 ; $null si illisible
+function Lire-Regard {
+  for ($i = 0; $i -lt 6; $i++) {
+    $m = Chercher-F3 '\((-?\d+\.\d)/(-?\d+\.\d)\)$'
+    if ($m) { $inv = [Globalization.CultureInfo]::InvariantCulture; return @([double]::Parse($m.Groups[1].Value, $inv), [double]::Parse($m.Groups[2].Value, $inv)) }
+    Start-Sleep -Milliseconds 150
+  }
+  return $null
+}
+
 function Aligner-Regard {
   if (-not $Config.RecalerRegard) { return $true }
   [Entree]::Touche(0x3D, $true); Start-Sleep -Milliseconds 60; [Entree]::Touche(0x3D, $false)   # F3
   Start-Sleep -Milliseconds 400
   $ok = $false
   try {
-    $yaw = Lire-Cap
-    if ($null -eq $yaw) { Write-Host "Je n'arrive pas a lire l'orientation dans F3 : regard non recale." -ForegroundColor Yellow; Image-Diag (Zone-F3) 'f3-illisible.png'; return $false }
+    $r = Lire-Regard
+    if ($null -eq $r) { Write-Host "Je n'arrive pas a lire l'orientation dans F3 : regard non recale." -ForegroundColor Yellow; Image-Diag (Zone-F3) 'f3-illisible.png'; return $false }
     if ($null -eq $script:DegresParPoint) {
       # mesure : de combien de degres tourne un deplacement de souris de 200 points
-      $sens = if ((Ecart-Cap $yaw) -ge 0) { 1 } else { -1 }
+      $sens = if ((Ecart-Cap $r[0]) -ge 0) { 1 } else { -1 }
       [Entree]::Souris(200 * $sens, 0); Start-Sleep -Milliseconds 250
-      $yaw2 = Lire-Cap
-      if ($null -eq $yaw2) { Write-Host "Orientation illisible pendant la mesure." -ForegroundColor Yellow; return $false }
-      $d = (($yaw2 - $yaw) % 360); if ($d -gt 180) { $d -= 360 }; if ($d -lt -180) { $d += 360 }
-      if ([Math]::Abs($d) -lt 0.5) { Write-Host "La souris ne fait pas tourner la vue : regard non recale." -ForegroundColor Yellow; return $false }
+      $r2 = Lire-Regard
+      if ($null -eq $r2) { Write-Host "Orientation illisible pendant la mesure." -ForegroundColor Yellow; return $false }
+      $d = (($r2[0] - $r[0]) % 360); if ($d -gt 180) { $d -= 360 }; if ($d -lt -180) { $d += 360 }
+      if ([Math]::Abs($d) -lt 0.5) {
+        # jeu repris sans cliquer dedans : le clavier repond mais la souris n'est pas captee. Un clic la capte (09/11/2026).
+        [Entree]::ClicGauche($true); Start-Sleep -Milliseconds 40; [Entree]::ClicGauche($false)
+        Start-Sleep -Milliseconds 350
+        [Entree]::Souris(200 * $sens, 0); Start-Sleep -Milliseconds 250
+        $r3 = Lire-Regard
+        if ($null -eq $r3) { Write-Host "Orientation illisible pendant la mesure." -ForegroundColor Yellow; return $false }
+        $d = (($r3[0] - $r2[0]) % 360); if ($d -gt 180) { $d -= 360 }; if ($d -lt -180) { $d += 360 }
+        if ([Math]::Abs($d) -lt 0.5) { Write-Host "La souris ne fait pas tourner la vue : regard non recale." -ForegroundColor Yellow; return $false }
+        $r2 = $r3
+      }
       $script:DegresParPoint = $d / (200 * $sens)
       Add-Content $script:Journal ("{0:HH:mm:ss.fff} souris : {1:N4} degre par point" -f (Get-Date), $script:DegresParPoint)
-      $yaw = $yaw2
+      $r = $r2
     }
-    for ($essai = 0; $essai -lt 8; $essai++) {
-      $ecart = Ecart-Cap $yaw
-      Add-Content $script:Journal ("{0:HH:mm:ss.fff} regard : {1:N1} (ecart {2:N1})" -f (Get-Date), $yaw, $ecart)
-      if ([Math]::Abs($ecart) -le 0.15) { $ok = $true; break }
-      $points = [int][Math]::Round($ecart / $script:DegresParPoint)
-      if ($points -eq 0) { $points = [Math]::Sign($ecart / $script:DegresParPoint) }
-      [Entree]::Souris($points, 0); Start-Sleep -Milliseconds 250
-      $y = Lire-Cap; if ($null -eq $y) { break }; $yaw = $y
+    # Au plus pres que la souris permet : direction pile (-90 ou +90) et regard a l'horizontale (0). F3 n'affiche qu'une decimale.
+    $parPoint = [Math]::Abs($script:DegresParPoint)
+    $tol = [Math]::Max(0.05, 0.7 * $parPoint)
+    for ($essai = 0; $essai -lt 12; $essai++) {
+      $ey = Ecart-Cap $r[0]; $ep = 0.0 - $r[1]
+      Add-Content $script:Journal ("{0:HH:mm:ss.fff} regard : {1:N1} / {2:N1} (ecart {3:N1} / {4:N1})" -f (Get-Date), $r[0], $r[1], $ey, $ep)
+      if ([Math]::Abs($ey) -le $tol -and [Math]::Abs($ep) -le $tol) { $ok = $true; break }
+      $dx = if ([Math]::Abs($ey) -le $tol) { 0 } else { [int][Math]::Round($ey / $script:DegresParPoint) }
+      if ($dx -eq 0 -and [Math]::Abs($ey) -gt $tol) { $dx = [Math]::Sign($ey / $script:DegresParPoint) }
+      if ($dx -ne 0 -and [Math]::Abs($ey) -le 0.11) { $dx = [Math]::Sign($dx) }                     # tout pres : un point a la fois
+      $dy = if ([Math]::Abs($ep) -le $tol) { 0 } else { [int][Math]::Round($ep / $parPoint) }
+      if ($dy -eq 0 -and [Math]::Abs($ep) -gt $tol) { $dy = [Math]::Sign($ep) }
+      if ($dy -ne 0 -and [Math]::Abs($ep) -le 0.11) { $dy = [Math]::Sign($dy) }
+      [Entree]::Souris($dx, $dy); Start-Sleep -Milliseconds 250
+      $l = Lire-Regard; if ($null -eq $l) { break }; $r = $l
     }
-    if ($ok) { Write-Host ("Regard recale : {0:N1}" -f $yaw) -ForegroundColor Green } else { Write-Host ("Regard pas tout a fait recale : {0:N1}" -f $yaw) -ForegroundColor Yellow }
+    # la derniere correction n'a pas encore ete jugee ; a 0,15 pres le regard reste bon
+    if (-not $ok -and [Math]::Abs((Ecart-Cap $r[0])) -le 0.15 -and [Math]::Abs($r[1]) -le 0.15) { $ok = $true }
+    if ($ok) { Write-Host ("Regard recale : {0:N1} / {1:N1}" -f $r[0], $r[1]) -ForegroundColor Green } else { Write-Host ("Regard pas tout a fait recale : {0:N1} / {1:N1}" -f $r[0], $r[1]) -ForegroundColor Yellow }
     return $ok
   } finally {
     [Entree]::Touche(0x3D, $true); Start-Sleep -Milliseconds 60; [Entree]::Touche(0x3D, $false)   # referme F3
@@ -1045,6 +1159,7 @@ function Recolte-Etage($numero) {
   $p0 = Position-Depart
   if ($null -eq $p0) { Write-Host "Je n'arrive pas a lire tes coordonnees en haut a gauche : sont-elles affichees ?" -ForegroundColor Red; Write-Host ("  derniere lecture : {0}" -f $script:DerniersTextes); Image-Diag (Coin-HautGauche) 'coordonnees-illisibles.png'; $script:Arret = $true; return }
   $script:Y0 = $p0[1]; $script:Bas = 0
+  if ($script:DialVide) { $script:EssaisRestants = 5 }   # dial vide : 5 essais par etage
   $av0 = $p0[$Axes.av]
   $avFin = $av0 + $Axes.avSigne * ($Config.AvanceMax + 2)
   $script:AvMin = [Math]::Min($av0, $avFin); $script:AvMax = [Math]::Max($av0, $avFin)
@@ -1084,16 +1199,36 @@ function Monter-Echelle {
   # surtout pas de clic pendant la montee : on relache le clic gauche (deux fois, par securite)
   [Entree]::ClicGauche($false); Start-Sleep -Milliseconds 50; [Entree]::ClicGauche($false); $script:ClicTenu = $false
   Start-Sleep -Milliseconds 150
+  # Colonne de l'echelle (cote) : celle du depart, colle au mur du coin. Sert a se recaler si on retombe.
+  $latEchelle = $p[$Axes.lat] + 0.5
   $debut = [Environment]::TickCount
+  $yMax = $yDepart; $reprises = 0; $derniere = ''
   Enfoncer $Touche.avant
   while (-not $script:Arret) {
-    if (([Environment]::TickCount - $debut) -gt 15000) { Relacher-Tout; Write-Host "Echelle pas atteinte ou montee trop longue : arret." -ForegroundColor Red; $script:Arret = $true; return }
+    if (([Environment]::TickCount - $debut) -gt 15000) { Relacher-Tout; Add-Content $script:Journal ("{0:HH:mm:ss.fff} echelle : montee trop longue" -f (Get-Date)); Write-Host "Echelle pas atteinte ou montee trop longue : arret." -ForegroundColor Red; $script:Arret = $true; return }
     if (Dormir 60) { if ($script:Arret) { return }; Enfoncer $Touche.avant; continue }   # pause : on reprend la montee
     $p = Lire-Position
     if ($null -eq $p) { continue }
+    $texte = $p -join ','
+    if ($texte -ne $derniere) { Add-Content $script:Journal ("{0:HH:mm:ss.fff} echelle : {1}" -f (Get-Date), $texte); $derniere = $texte }
     if ((($p[$Axes.av] - $avDepart) * $Axes.avSigne) -gt 8) { Relacher-Tout; Write-Host "Trop loin en avant sans monter : arret." -ForegroundColor Red; $script:Arret = $true; return }
     if ($p[1] -lt $yDepart) { Relacher-Tout; [console]::Beep(400, 600); Write-Host "Tu redescends : arret." -ForegroundColor Red; $script:Arret = $true; return }
     if ($p[1] -ge $yCible) { break }
+    if ($p[1] -gt $yMax) { $yMax = $p[1] }
+    # Retombe de 2 blocs ou plus : il montait mal (accroche au mur). On lache, on le laisse
+    # redescendre en bas, on le recale au milieu de la colonne de l'echelle, et on remonte.
+    if ($yMax - $p[1] -ge 2) {
+      $reprises++
+      Add-Content $script:Journal ("{0:HH:mm:ss.fff} echelle : retombe a Y {1} (monte jusqu'a {2}), reprise {3}" -f (Get-Date), $p[1], $yMax, $reprises)
+      if ($reprises -gt 3) { Relacher-Tout; Write-Host "Echelle ratee 3 fois : arret." -ForegroundColor Red; $script:Arret = $true; return }
+      Write-Host ("  echelle ratee (Y {0}), on se recale et on remonte" -f $p[1]) -ForegroundColor Yellow
+      Lacher
+      if (Dormir 1000) { if ($script:Arret) { return } }
+      Centrer-Precis $latEchelle 'lat'
+      if ($script:Arret) { return }
+      $yMax = $yDepart; $derniere = ''; $debut = [Environment]::TickCount
+      Enfoncer $Touche.avant
+    }
   }
   # encore un peu de montee pour passer le bord, puis un pas en arriere sur l'etage
   [void](Dormir 150)
@@ -1116,19 +1251,38 @@ function Monter-Echelle {
   Write-Host "En haut de l'echelle." -ForegroundColor Green
 }
 
-# Fin du 12e etage : /home s ramene au depart du 1er etage (X 19, Y 107, Z -80), face a l'est.
+# Fin du 12e etage : /home canne ramene au depart du 1er etage (X 19, Y 107, Z -80), face a l'est.
 # Seule commande tapee dans le chat par le script.
 $Depart = @{ X = 19; Y = 107; Z = -80 }
 Add-Type -AssemblyName System.Windows.Forms
+# Commandes autorisees dans le chat : /home canne, et avec l'anti-lag /spawn et /is go.
+function Taper-Chat($texte) {
+  Oublier-TP 8000   # teleportation voulue
+  Add-Content $script:Journal ("{0:HH:mm:ss.fff} {1}" -f (Get-Date), $texte)
+  if (-not (Au-Premier-Plan)) { Write-Host "Le jeu n'est pas au premier plan : $texte annule, arret." -ForegroundColor Red; $script:Arret = $true; return }
+  [Entree]::Touche($script:Cles.chat, $true); Start-Sleep -Milliseconds 40; [Entree]::Touche($script:Cles.chat, $false)   # ouvre le chat
+  Start-Sleep -Milliseconds 700
+  [System.Windows.Forms.SendKeys]::SendWait($texte); Start-Sleep -Milliseconds 300
+  [Entree]::Touche(0x1C, $true); Start-Sleep -Milliseconds 40; [Entree]::Touche(0x1C, $false)   # Entree
+}
+# Anti-lag (option) : les objets laisses au sol finissent par faire tomber les FPS (4-5 FPS).
+# On quitte l'ile le temps qu'ils disparaissent : /spawn, attente, /is go ; Retour-Home fait ensuite /home canne.
+function Anti-Lag {
+  Relacher-Tout
+  Write-Host ("Anti-lag : /spawn, {0} s d'attente, puis /is go" -f $AntiLagS) -ForegroundColor Cyan
+  Taper-Chat '/spawn'
+  if ($script:Arret) { return }
+  [void](Dormir (3000 + $AntiLagS * 1000))   # le teleport au spawn dure 3 s, l'attente compte a partir de l'arrivee
+  if ($script:Arret) { return }
+  Taper-Chat '/is go'   # instantane
+  if ($script:Arret) { return }
+  [void](Dormir 1500)
+}
 function Retour-Home {
   Relacher-Tout
-  Write-Host "Retour au depart : /home s" -ForegroundColor Cyan
-  Add-Content $script:Journal ("{0:HH:mm:ss.fff} /home s" -f (Get-Date))
-  if (-not (Au-Premier-Plan)) { Write-Host "Le jeu n'est pas au premier plan : /home annule, arret." -ForegroundColor Red; $script:Arret = $true; return }
-  [Entree]::Touche(0x14, $true); Start-Sleep -Milliseconds 40; [Entree]::Touche(0x14, $false)   # T : ouvre le chat
-  Start-Sleep -Milliseconds 700
-  [System.Windows.Forms.SendKeys]::SendWait('/home s'); Start-Sleep -Milliseconds 300
-  [Entree]::Touche(0x1C, $true); Start-Sleep -Milliseconds 40; [Entree]::Touche(0x1C, $false)   # Entree
+  Write-Host "Retour au depart : /home canne" -ForegroundColor Cyan
+  Taper-Chat '/home canne'
+  if ($script:Arret) { return }
   Start-Sleep -Milliseconds 2500
   $script:Valide = $null
   $p = Position-Depart
@@ -1166,6 +1320,7 @@ function Recolte {
     Bip 660 300; Bip 880 300; Bip 1100 400
     Write-Host ("Tour {0} termine : {1} etages en {2:N0} min." -f $tour, $Config.NbEtages, $sw.Elapsed.TotalMinutes) -ForegroundColor Green
     if ($Config.Tours -gt 0 -and $tour -ge $Config.Tours) { break }
+    if ($AntiLag -eq 1) { Anti-Lag; if ($script:Arret) { break } }
     Retour-Home
     if ($script:Arret) { break }
     $Config.EtageDepart = 1; $Config.NbEtages = 12            # les tours suivants font les 12 etages
@@ -1173,6 +1328,195 @@ function Recolte {
   Suivre-Argent $true
   Write-Host ("Recolte terminee en {0:N0} min." -f $total.Elapsed.TotalMinutes) -ForegroundColor Green
 }
+# Bouton "Tester mon ecran" du menu : les memes lectures que pendant la ferme, plus F3 et un petit mouvement de vue. Aucun clic.
+# Lignes "Test <quoi> : OK ..." ou "Test <quoi> : ECHEC ..." (le menu les colore en vert / rouge).
+function Tester-Ecran {
+  if ($script:PidsJeu.Count -eq 0) { Write-Host "Test jeu : ECHEC - le jeu n'est pas lance."; return }
+  # Le joueur vient de cliquer dans le menu : on attend qu'il soit revenu dans le jeu.
+  Write-Host "Test : attente du jeu"
+  $attente = [Diagnostics.Stopwatch]::StartNew()
+  while (-not (Au-Premier-Plan)) {
+    if ($attente.Elapsed.TotalSeconds -ge 60) { Write-Host "Test jeu : ECHEC - tu n'es pas revenu dans le jeu en 60 secondes. Relance le test."; Write-Host "Test termine"; return }
+    Start-Sleep -Milliseconds 200
+  }
+  $r = Fenetre-Rect
+  if ($r.L -le -30000 -or ($r.R - $r.L) -lt 200) { Write-Host "Test jeu : ECHEC - la fenetre du jeu est reduite : affiche-la."; return }
+  Write-Host "Test : lecture"   # le menu se cache le temps de la lecture
+  Start-Sleep -Milliseconds 500
+  # Le jeu doit etre visible : on regarde quelle fenetre est au centre et pres des coins du jeu
+  # (le menu, devenu transparent, ne compte pas). Sinon les lectures verraient l'autre fenetre.
+  Add-Type -Namespace TestEcran -Name Fen -ReferencedAssemblies System.Drawing -MemberDefinition @'
+[DllImport("user32.dll")] public static extern IntPtr WindowFromPoint(System.Drawing.Point p);
+[DllImport("user32.dll")] public static extern IntPtr GetAncestor(IntPtr h, uint f);
+'@
+  $l = $r.R - $r.L; $h = $r.B - $r.T
+  foreach ($pt in @(@(0.5, 0.5), @(0.1, 0.1), @(0.9, 0.9))) {
+    $fen = [TestEcran.Fen]::GetAncestor([TestEcran.Fen]::WindowFromPoint((New-Object System.Drawing.Point ([int]($r.L + $l * $pt[0])), ([int]($r.T + $h * $pt[1])))), 2)
+    $pidFen = [Entree]::PidDe($fen)
+    if ($script:PidsJeu -contains $pidFen) { continue }
+    $proc = Get-Process -Id $pidFen -ErrorAction SilentlyContinue
+    if ($proc -and $proc.ProcessName -eq 'powershell') { continue }
+    Write-Host ("Test jeu : ECHEC - le jeu est cache par une autre fenetre ({0}). Mets le jeu devant (le menu peut rester a cote ou sur l'autre ecran), puis refais le test." -f $(if ($proc) { $proc.ProcessName } else { '?' }))
+    Write-Host "Test termine"; Annoncer-Fin; return
+  }
+  Write-Host ("Test jeu : OK (fenetre {0} x {1}, visible)" -f $l, $h)
+  # Revenir dans le jeu laisse le menu pause ouvert, et il cache ce qu'on lit : on relit jusqu'a 15 s, le temps de le fermer.
+  $lecture = [Diagnostics.Stopwatch]::StartNew()
+  do {
+    Preparer-Zones
+    Detecter-Interface
+    $p = Lire-Coord-Test
+    $c = Lire-Compteur-Test
+    if ($null -ne $p -and $c -match '^\d+$') { break }
+    Start-Sleep -Milliseconds 500
+  } while ($lecture.Elapsed.TotalSeconds -lt 15)
+  if ($null -ne $p) { Write-Host ("Test coordonnees : OK ({0} {1} {2})" -f $p[0], $p[1], $p[2]) }
+  else { Write-Host ("Test coordonnees : ECHEC - lu {0}. Affiche X, Y, Z en blanc en haut a gauche du jeu." -f $script:DerniersTextes) }
+  if ($c -match '^\d+$') { Write-Host "Test compteur : OK ($c)" }
+  else { Write-Host "Test compteur : ECHEC - prends les cannes en main : leur nombre doit s'afficher en bas a droite." }
+  $a = Lire-Argent
+  if ($null -ne $a) { Write-Host ("Test argent : OK ({0})" -f [long]$a) }
+  else { Write-Host "Test argent : ECHEC - l'argent (en jaune en haut de l'ecran) n'est pas lu : les gains ne seront pas comptes." }
+  $v = Lire-VoteParty
+  if ($v -match '(\d+)/(\d+)') { Write-Host ("Test vote party : OK ({0}/{1})" -f $Matches[1], $Matches[2]) }
+  else { Write-Host "Test vote party : ECHEC - VoteParty pas lu en haut de l'ecran (seulement utile pour baisser le seuil de vente)." }
+  $touches = Etat-Touches
+  if ($touches -eq 'OK') { Write-Host "Test touches : OK (lues dans les reglages du jeu)" }
+  elseif ($touches -eq 'DEFAUT') { Write-Host "Test touches : OK (reglages du jeu pas trouves : touches par defaut)" }
+  else { Write-Host ("Test touches : ECHEC - touches que les macros ne savent pas utiliser : {0}" -f ($touches -replace '^ECHEC ', '')) }
+  if ($null -eq $p) { Write-Host "Test F3 : ECHEC - pas essaye : ferme les menus du jeu et affiche les coordonnees." }
+  else {
+    $fs = Tester-F3-Souris
+    if ($fs.f3 -like 'OK*') { Write-Host ("Test F3 : OK ({0})" -f ($fs.f3 -replace '^OK ', '')) } else { Write-Host "Test F3 : ECHEC - la ligne d'orientation de F3 n'est pas lue." }
+    if ($fs.souris -eq 'OK') { Write-Host "Test souris : OK" } else { Write-Host "Test souris : ECHEC - la vue ne tourne pas : clique une fois dans le jeu, puis relance le test." }
+  }
+  Write-Host "Test termine"
+  Annoncer-Fin
+}
+# Une voix previent le joueur, qui a le jeu devant lui, qu'il peut revenir au logiciel (un bip si Windows n'a pas de voix).
+function Annoncer-Fin {
+  try {
+    Add-Type -AssemblyName System.Speech
+    $voix = New-Object System.Speech.Synthesis.SpeechSynthesizer
+    $voix.SelectVoiceByHints('NotSet', 'NotSet', 0, [Globalization.CultureInfo]'fr-FR')
+    $voix.Speak("Test termin$([char]0xE9)")   # fichier lu sans BOM par PowerShell 5.1 : pas d'accent ecrit tel quel ici
+    $voix.Dispose()
+  } catch { [console]::Beep(880, 300); [console]::Beep(880, 300) }
+}
+# Touches du joueur, lues dans options.txt. 'OK', 'DEFAUT' (fichier absent : ZQSD et T supposes) ou 'ECHEC a,b' (touches
+# que les macros ne savent pas utiliser ; F3 est tape tel quel par les macros, il doit rester sur F3).
+function Etat-Touches {
+  $f = Join-Path $env:APPDATA '.minecraft\options.txt'
+  if (-not (Test-Path $f)) { return 'DEFAUT' }
+  $t = Lire-Touches $f
+  if (-not $t.lues) { return 'DEFAUT' }
+  $pb = @($t.ignorees | Where-Object { $_ -notmatch 'hotbar' } | ForEach-Object { $_ -replace '^key_key\.', '' })
+  $ligne = Select-String -Path $f -Pattern '^key_key\.debug\.overlay:(.+)$' -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($ligne -and $ligne.Matches[0].Groups[1].Value -ne 'key.keyboard.f3') { $pb += 'f3' }
+  if ($pb.Count -gt 0) { return 'ECHEC ' + ($pb -join ',') }
+  return 'OK'
+}
+# Ouvre F3, lit le regard, bouge la vue de 200 points et la remet en place, referme F3. Jamais de clic : si la souris
+# n'est pas captee, le joueur clique lui-meme dans le jeu. Rien n'est envoye si le jeu n'a plus la main.
+$script:F3Ouvert = $false
+function Basculer-F3 {
+  [Entree]::Touche(0x3D, $true); Start-Sleep -Milliseconds 60; [Entree]::Touche(0x3D, $false)
+  $script:F3Ouvert = -not $script:F3Ouvert
+  Start-Sleep -Milliseconds 400
+}
+function Tester-F3-Souris {
+  $res = @{ f3 = 'ATTENTE'; souris = 'ATTENTE' }
+  if (-not (Au-Premier-Plan)) { return $res }
+  Basculer-F3
+  try {
+    $a = Lire-Regard
+    if ($null -eq $a) { $res.f3 = 'ECHEC'; Image-Diag (Zone-F3) 'f3-illisible.png'; return $res }
+    $res.f3 = 'OK {0} / {1}' -f $a[0].ToString('0.0', [Globalization.CultureInfo]::InvariantCulture), $a[1].ToString('0.0', [Globalization.CultureInfo]::InvariantCulture)
+    if (-not (Au-Premier-Plan)) { return $res }
+    [Entree]::Souris(200, 0); Start-Sleep -Milliseconds 250
+    $b = Lire-Regard
+    if (Au-Premier-Plan) { [Entree]::Souris(-200, 0); Start-Sleep -Milliseconds 150 }   # la vue revient ou elle etait
+    if ($null -eq $b) { $res.souris = 'ECHEC'; return $res }
+    $d = ($b[0] - $a[0]) % 360; if ($d -gt 180) { $d -= 360 }; if ($d -lt -180) { $d += 360 }
+    $res.souris = if ([Math]::Abs($d) -ge 0.5) { 'OK' } else { 'ECHEC' }
+    return $res
+  } finally {
+    if ($script:F3Ouvert -and (Au-Premier-Plan)) { Basculer-F3 }
+  }
+}
+# Coordonnees lues directement : un test relit plusieurs fois, sans les images de diagnostic de Lire-Brut.
+function Lire-Coord-Test {
+  $lus = @($script:Zones | ForEach-Object { [Glyphes]::Lire($_) })
+  $script:DerniersTextes = $lus -join ' '
+  if ($lus.Count -eq 3 -and @($lus | Where-Object { $_ -notmatch '^-?\d+$' }).Count -eq 0) { return $lus }
+  return $null
+}
+# Pendant la ferme, le compteur n'est cherche qu'apres 5 lectures ratees. Un test n'en fait qu'une : on force la
+# recherche, sinon un ecran different de celui de l'auteur (compteur ailleurs) serait toujours juge en echec.
+function Lire-Compteur-Test {
+  $script:CompteurAuto = $null
+  foreach ($essai in 1, 2) {
+    $script:EchecsCompteur = 5; $script:ProchaineRechercheCompteur = 0
+    $c = Lire-Compteur
+    if ($c -match '^\d+$') { return $c }
+  }
+  return $c
+}
+# Tutoriel du premier lancement (menu) : boucle jusqu'a ce que tout soit bon. Seules touche envoyee : F3. Aucun clic.
+# Lignes "Tuto <quoi> : <etat> [valeur]", traduites par le menu. On ne lit que le jeu au premier plan : des qu'il perd
+# la main, il ouvre son menu pause, qui cache ce qu'il faut lire.
+function Tuto-Dire($quoi, $texte) {
+  if ($script:TutoDit[$quoi] -ceq $texte) { return }
+  $script:TutoDit[$quoi] = $texte
+  Write-Host ("Tuto {0} : {1}" -f $quoi, $texte)
+}
+function Tuto-EnAttente($etatJeu) {
+  Tuto-Dire 'jeu' $etatJeu; Tuto-Dire 'coordonnees' 'ATTENTE'; Tuto-Dire 'compteur' 'ATTENTE'
+  if (-not $script:TutoFS) { Tuto-Dire 'f3' 'ATTENTE'; Tuto-Dire 'souris' 'ATTENTE' }
+}
+function Tuto-Ecran {
+  $script:TutoDit = @{}; $script:TutoFS = $null
+  $sw = [Diagnostics.Stopwatch]::StartNew()
+  while ($sw.Elapsed.TotalSeconds -lt 60) {   # 60 s depuis le clic sur "Lancer le test" ; le joueur peut le relancer
+    $touches = Etat-Touches
+    Tuto-Dire 'touches' $touches
+    $jeux = @(Garder-Lunar @(Get-Process -Name $Config.ProgrammeJeu -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero }))
+    $script:PidsJeu = @($jeux | ForEach-Object { [uint32]$_.Id })
+    $etat = $null
+    if ($jeux.Count -eq 0) { $etat = 'ABSENT' }
+    elseif (@($jeux | Where-Object { $_.MainWindowTitle -match 'Lunar' -or $_.Path -match 'lunar' }).Count -eq 0) { $etat = 'AUTRE' }
+    else {
+      $r = Fenetre-Rect
+      if ($r.L -le -30000 -or ($r.R - $r.L) -lt 200) { $etat = 'REDUIT' }
+      elseif (-not (Au-Premier-Plan)) { $etat = 'ARRIERE' }
+    }
+    if ($etat) { Tuto-EnAttente $etat; Start-Sleep -Milliseconds 800; continue }
+    Tuto-Dire 'jeu' ("OK {0} x {1}" -f ($r.R - $r.L), ($r.B - $r.T))
+    if ($script:F3Ouvert) { Basculer-F3 }   # le joueur etait parti pendant que F3 etait ouvert : il cache les coordonnees
+    Detecter-Interface
+    Preparer-Zones
+    $lus = Lire-Coord-Test
+    $coordOk = $null -ne $lus
+    Tuto-Dire 'coordonnees' $(if ($coordOk) { "OK {0} {1} {2}" -f $lus[0], $lus[1], $lus[2] } else { 'ECHEC' })
+    $c = Lire-Compteur-Test
+    $compteurOk = $c -match '^\d+$'
+    Tuto-Dire 'compteur' $(if ($compteurOk) { "OK $c" } else { 'ECHEC' })
+    # Coordonnees lues = interface visible (pas de menu ouvert) : F3 et la souris peuvent etre essayes. Une fois reussis, on n'y revient plus.
+    if ($coordOk -and -not $script:TutoFS) {
+      $fs = Tester-F3-Souris
+      if ($fs.f3 -like 'OK*' -and $fs.souris -like 'OK*') { $script:TutoFS = $fs }
+      Tuto-Dire 'f3' $fs.f3; Tuto-Dire 'souris' $fs.souris
+    }
+    elseif (-not $coordOk -and -not $script:TutoFS) { Tuto-Dire 'f3' 'ATTENTE'; Tuto-Dire 'souris' 'ATTENTE' }
+    if ($coordOk -and $compteurOk -and $script:TutoFS -and $touches -notlike 'ECHEC*') { Write-Host 'Tuto fini'; Annoncer-Fin; return }
+    Start-Sleep -Milliseconds 800
+  }
+  if ($script:F3Ouvert -and (Au-Premier-Plan)) { Basculer-F3 }
+  Annoncer-Fin   # temps ecoule : le joueur, dans le jeu, doit aussi savoir qu'il peut revenir
+}
+if ($Tester -eq 1) { Tester-Ecran; return }
+if ($Tester -eq 2) { Tuto-Ecran; return }
+
 try { Recolte }
 finally {
   Relacher-Tout

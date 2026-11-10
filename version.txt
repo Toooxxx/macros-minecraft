@@ -1,3 +1,6 @@
-1
-Mise a jour automatique depuis GitHub.
-Vente : le compteur d'objets est toujours lu a sa place habituelle en premier.
+2
+Nouvelle page de verification au premier lancement.
+Mine 3x3 (Mine 1 et Mine 2) dans l'onglet Minage, autoclick dans son propre onglet.
+Cultures : pasteques et citrouilles. Peche : vente au Dial toutes les X minutes.
+Onglet Securite partout (arret si teleporte), Vote Party dans la vente.
+Si plusieurs Minecraft sont ouverts, les macros utilisent Lunar.
