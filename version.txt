@@ -1,3 +1,2 @@
-5
-Nouvelle fenetre de mise a jour au milieu du menu, aux couleurs du logiciel.
-Mine 3x3 : attente au fond et nombre de tours dans l'onglet principal, limites X et Y dans Avance.
+6
+Fenetre des nouveautes apres chaque mise a jour.

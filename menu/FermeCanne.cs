@@ -964,7 +964,7 @@ public class FermeCanne : Form {
     FormClosing += (s, e) => { Sauver(); if (proc != null && !proc.HasExited) Arreter(); CacherMini(); if (procTuto != null && !procTuto.HasExited) { procTuto.EnableRaisingEvents = false; try { procTuto.Kill(); } catch { } } };
     HandleCreated += (s, e) => Coins();
     if (!ecranVerifie) MontrerTuto();
-    Shown += (s, e) => { if (ecranVerifie) ChercherMaj(); };   // le menu s'ouvre d'abord ; la recherche ne le ralentit pas
+    Shown += (s, e) => { if (ecranVerifie) ApresOuverture(); };   // le menu s'ouvre d'abord ; la recherche ne le ralentit pas
   }
 
   // ------------------------------ Fenetre sans bordure ------------------------------
@@ -1355,6 +1355,87 @@ public class FermeCanne : Form {
   // Le menu s'ouvre, puis regarde sur GitHub s'il existe une version plus recente (sans Internet : rien ne se passe).
   // Si oui : popup au milieu du menu. Oui = mise-a-jour.ps1 -Installer, puis redemarrage. Non = le popup se retire.
   Panel voileMaj; Image fondMaj; BoutonRond bMajOui, bMajNon; Label lMajInfo;
+  // Fond commun des popups : le menu assombri ; la barre de titre reste libre (deplacer, reduire, fermer)
+  void PreparerVoile() {
+    int w = ClientSize.Width, h = ClientSize.Height - 56;
+    using (var tout = new Bitmap(ClientSize.Width, ClientSize.Height)) {
+      DrawToBitmap(tout, ClientRectangle);
+      var b = new Bitmap(w, h);
+      using (var g = Graphics.FromImage(b)) {
+        g.DrawImage(tout, new Rectangle(0, 0, w, h), new Rectangle(0, 56, w, h), GraphicsUnit.Pixel);
+        using (var v = new SolidBrush(Color.FromArgb(165, 8, 8, 16))) g.FillRectangle(v, 0, 0, w, h);
+      }
+      fondMaj = b;
+    }
+    voileMaj = new Panel { Left = 0, Top = 56, Width = w, Height = h, BackgroundImage = fondMaj, BackgroundImageLayout = ImageLayout.None, BackColor = Th.Fond, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right };
+  }
+  // A l'ouverture : d'abord les nouveautes s'il y en a, puis la recherche d'une version plus recente.
+  int versionVue = -1;   // derniere version dont le joueur a vu les nouveautes (-1 : jamais enregistree)
+  void ApresOuverture() { if (!MontrerNouveautes()) ChercherMaj(); }
+  // Versions a montrer : celles apres la derniere vue. Premiere fois : version d'avant la mise a jour (gardee dans ancienne-version),
+  // sinon (nouvelle installation) seulement la version actuelle.
+  bool MontrerNouveautes() {
+    try {
+      string fv = Path.Combine(dossier, "version.txt");
+      int v = NumeroVersion(File.Exists(fv) ? File.ReadAllText(fv) : "");
+      if (v <= 0) return false;
+      int de = versionVue;
+      if (de < 0) {
+        string av = Path.Combine(dossier, "ancienne-version", "version.txt");
+        int a = File.Exists(av) ? NumeroVersion(File.ReadAllText(av)) : 0;
+        de = a > 0 && a < v ? a : v - 1;
+      }
+      if (versionVue != v) { versionVue = v; Sauver(); }
+      if (v <= de) return false;
+      string fn = Path.Combine(dossier, "notes-version.txt");
+      if (!File.Exists(fn)) return false;
+      var sections = new SortedDictionary<int, List<string>>();
+      List<string> cur = null;
+      foreach (var brute in File.ReadAllLines(fn)) {
+        var m = Regex.Match(brute, @"^\[(\d+)\]\s*$");
+        if (m.Success) { int n = int.Parse(m.Groups[1].Value); cur = new List<string>(); sections[n] = cur; continue; }
+        if (cur != null && brute.Trim() != "") cur.Add(Regex.Replace(brute.Trim(), @"^-\s*", ""));
+      }
+      var liste = new List<int>();
+      foreach (var k in sections.Keys) if (k > de && k <= v) liste.Add(k);
+      if (liste.Count == 0) return false;
+      liste.Reverse();   // la plus recente en haut
+      AfficherNouveautes(liste, sections);
+      return true;
+    } catch { return false; }
+  }
+  void AfficherNouveautes(List<int> versions, SortedDictionary<int, List<string>> sections) {
+    PreparerVoile();
+    int w = voileMaj.Width, h = voileMaj.Height;
+    const int L = 560, M = 32, LT = L - 2 * M;
+    var fTitre = new Font("Segoe UI Semibold", 11.5f); var fLigne = new Font("Segoe UI", 10.5f);
+    var zone = new Panel { Left = M, Top = 102, Width = LT, AutoScroll = true, BackColor = Th.Carte };
+    int y = 0, lt = LT - 22;
+    foreach (int n in versions) {
+      zone.Controls.Add(new Label { Text = "Version " + n, Left = 1, Top = y, Width = lt, Height = 28, Font = fTitre, ForeColor = Th.Accent, BackColor = Th.Carte, Tag = "accent-texte" });
+      y += 30;
+      foreach (var ligne in sections[n]) {
+        string t = "•  " + ligne;
+        int hl = TextRenderer.MeasureText(t, fLigne, new Size(lt, 0), TextFormatFlags.WordBreak).Height + 8;
+        zone.Controls.Add(new Label { Text = t, Left = 1, Top = y, Width = lt, Height = hl, Font = fLigne, ForeColor = Th.Texte, BackColor = Th.Carte });
+        y += hl;
+      }
+      y += 12;
+    }
+    int hs = Math.Min(y, Math.Max(160, h - 300));
+    zone.Height = hs;
+    int yb = 102 + hs + 16, hc = yb + 50 + 26;
+    var c = new CarteRonde { Width = L, Height = hc, Left = (w - L) / 2, Top = Math.Max(16, (h - hc) / 2), Remplissage = Th.Carte, Anchor = AnchorStyles.None };
+    c.Controls.Add(new Label { Text = "Nouveautés", Left = M, Top = 26, Width = LT, Height = 40, Font = new Font("Segoe UI Semibold", 18f), ForeColor = Th.Texte, BackColor = Th.Carte });
+    string sous = versions.Count == 1 ? "Le logiciel est en version " + versions[0] : "Tu passes à la version " + versions[0] + " : voici aussi ce que tu as manqué";
+    c.Controls.Add(new Label { Text = sous, Left = M + 1, Top = 68, Width = LT, Height = 24, Font = new Font("Segoe UI", 10f), ForeColor = Th.Discret, BackColor = Th.Carte });
+    c.Controls.Add(zone);
+    var ok = new BoutonRond { Text = "Compris", Principal = true, Left = M, Top = yb, Width = LT, Height = 50, Font = new Font("Segoe UI Semibold", 12f) };
+    ok.Click += (s, e) => { FermerPopupMaj(); ChercherMaj(); };
+    c.Controls.Add(ok);
+    voileMaj.Controls.Add(c);
+    Controls.Add(voileMaj); voileMaj.BringToFront();
+  }
   static int NumeroVersion(string t) { var m = Regex.Match(t ?? "", @"^\s*(\d+)"); return m.Success ? int.Parse(m.Groups[1].Value) : 0; }
   void ChercherMaj() {
     var t = new System.Threading.Thread(() => {
@@ -1379,18 +1460,7 @@ public class FermeCanne : Form {
   }
   void AfficherMaj(int distante, int locale, string notes) {
     if (voileMaj != null || EnCours() || tuto != null) return;
-    // fond : le menu assombri ; la barre de titre reste libre (deplacer, reduire, fermer)
-    int w = ClientSize.Width, h = ClientSize.Height - 56;
-    using (var tout = new Bitmap(ClientSize.Width, ClientSize.Height)) {
-      DrawToBitmap(tout, ClientRectangle);
-      var b = new Bitmap(w, h);
-      using (var g = Graphics.FromImage(b)) {
-        g.DrawImage(tout, new Rectangle(0, 0, w, h), new Rectangle(0, 56, w, h), GraphicsUnit.Pixel);
-        using (var v = new SolidBrush(Color.FromArgb(165, 8, 8, 16))) g.FillRectangle(v, 0, 0, w, h);
-      }
-      fondMaj = b;
-    }
-    voileMaj = new Panel { Left = 0, Top = 56, Width = w, Height = h, BackgroundImage = fondMaj, BackgroundImageLayout = ImageLayout.None, BackColor = Th.Fond, Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right };
+    PreparerVoile(); int w = voileMaj.Width, h = voileMaj.Height;
     const int L = 520, M = 32, LT = L - 2 * M;
     var fNotes = new Font("Segoe UI", 10.5f);
     if (notes == "") notes = "Améliorations du logiciel.";
@@ -1446,7 +1516,7 @@ public class FermeCanne : Form {
     foreach (var c in tutoCaches) c.Visible = true;
     tutoCaches.Clear();
     Ecrire("Écran vérifié. Tu peux utiliser le logiciel.", Vert);
-    ChercherMaj();
+    ApresOuverture();
   }
 
   // ------------------------------ Couleur d'accent ------------------------------
@@ -1887,7 +1957,7 @@ public class FermeCanne : Form {
         "acClicsMax=" + acClicsMax.Value, "acStopTP=" + (acStopTP.Checked ? 1 : 0), "acTPBlocs=" + acTPBlocs.Value, "acVente=" + (acVente.Checked ? 1 : 0), "acSeuil=" + acSeuil.Value, "acVenteMs=" + acVenteMs.Value, "acSlot=" + acSlot.Value, "acVoteSlots=" + acVoteSlots.Value,
         "pcAnticip2=" + pcAnticip.Value, "pcSecondPlan=" + (pcSecondPlan.Checked ? 1 : 0), "acSecondPlan=" + (acSecondPlan.Checked ? 1 : 0), "pcTol2=" + pcTol.Value, "pcAttente=" + pcAttente.Value, "pcRelance=" + pcRelance.Value, "pcMax=" + pcMax.Value, "pcSlot=" + pcSlot.Value,
         "rcRangeeDepart=" + rcRangees.Value, "rcTours=" + rcTours.Value, "rcRegard=" + (rcRegard.Checked ? 1 : 0), "rcEtage=" + rcEtage.Value,
-        "miMine=" + miMine.SelectedIndex, "miStopTP=" + (miStopTP.Checked ? 1 : 0), "miTPBlocs=" + miTPBlocs.Value, "miAttente=" + miAttente.Value, "miTours=" + miTours.Value, "miXMin=" + miXMin.Value, "miXMax=" + miXMax.Value, "miY=" + miY.Value,
+        "versionVue=" + versionVue, "miMine=" + miMine.SelectedIndex, "miStopTP=" + (miStopTP.Checked ? 1 : 0), "miTPBlocs=" + miTPBlocs.Value, "miAttente=" + miAttente.Value, "miTours=" + miTours.Value, "miXMin=" + miXMin.Value, "miXMax=" + miXMax.Value, "miY=" + miY.Value,
         "pcVente=" + (pcVente.Checked ? 1 : 0), "pcVenteMin=" + pcVenteMin.Value, "pcVenteSlot=" + pcVenteSlot.Value,
         "cnStopTP=" + (cnStopTP.Checked ? 1 : 0), "cnTPBlocs=" + cnTPBlocs.Value, "rcStopTP=" + (rcStopTP.Checked ? 1 : 0), "rcTPBlocs=" + rcTPBlocs.Value, "pcStopTP=" + (pcStopTP.Checked ? 1 : 0), "pcTPBlocs=" + pcTPBlocs.Value,
         "ecranVerifie=" + (ecranVerifie ? 1 : 0), "onglet=" + page, "stats=" + statsFiltre.SelectedIndex, "reprise=" + reprise, "pause=" + tPause.Vk, "arret=" + tArret.Vk, "mini=" + (miniActive.Checked ? 1 : 0), "verif=" + (verifActive.Checked ? 1 : 0),
@@ -1905,6 +1975,7 @@ public class FermeCanne : Form {
       }
       int x;
       if (d.TryGetValue("ecranVerifie", out x)) ecranVerifie = x == 1;
+      if (d.TryGetValue("versionVue", out x)) versionVue = x;
       if (d.TryGetValue("miMine", out x)) miMine.SelectedIndex = Math.Max(0, Math.Min(1, x));
       if (d.TryGetValue("miStopTP", out x)) miStopTP.Checked = x == 1;
       if (d.TryGetValue("miTPBlocs", out x)) miTPBlocs.Value = Math.Max(1, Math.Min(10, x));
