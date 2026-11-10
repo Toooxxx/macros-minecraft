@@ -1450,28 +1450,19 @@ public class FermeCanne : Form {
         string fv = Path.Combine(dossier, "version.txt");
         int distante = NumeroVersion(texte), locale = NumeroVersion(File.Exists(fv) ? File.ReadAllText(fv) : "");
         if (distante <= locale) return;
-        var lignes = new List<string>();
-        foreach (var l in Regex.Split(texte, "\r?\n")) if (l.Trim() != "") lignes.Add("•  " + l.Trim());
-        if (lignes.Count > 0) lignes.RemoveAt(0);   // la premiere ligne est le numero
-        BeginInvoke((Action)(() => AfficherMaj(distante, locale, string.Join("\n", lignes))));
+        BeginInvoke((Action)AfficherMaj);
       } catch { }
     });
     t.IsBackground = true; t.Start();
   }
-  void AfficherMaj(int distante, int locale, string notes) {
+  void AfficherMaj() {
     if (voileMaj != null || EnCours() || tuto != null) return;
     PreparerVoile(); int w = voileMaj.Width, h = voileMaj.Height;
     const int L = 520, M = 32, LT = L - 2 * M;
-    var fNotes = new Font("Segoe UI", 10.5f);
-    if (notes == "") notes = "Améliorations du logiciel.";
-    int hn = TextRenderer.MeasureText(notes, fNotes, new Size(LT, 0), TextFormatFlags.WordBreak).Height + 16;
-    hn = Math.Min(hn, 260);
-    int hc = 118 + hn + 72 + 76;
+    int hc = 240;
     var c = new CarteRonde { Width = L, Height = hc, Left = (w - L) / 2, Top = Math.Max(16, (h - hc) / 2), Remplissage = Th.Carte, Anchor = AnchorStyles.None };
     c.Controls.Add(new Label { Text = "Mise à jour disponible", Left = M, Top = 26, Width = LT, Height = 40, Font = new Font("Segoe UI Semibold", 18f), ForeColor = Th.Texte, BackColor = Th.Carte });
-    c.Controls.Add(new Label { Text = locale > 0 ? "Version " + distante + "  ·  tu as la version " + locale : "Version " + distante, Left = M + 1, Top = 68, Width = LT, Height = 24, Font = new Font("Segoe UI", 10f), ForeColor = Th.Accent, BackColor = Th.Carte, Tag = "accent-texte" });
-    c.Controls.Add(new Label { Text = notes, Left = M + 1, Top = 102, Width = LT, Height = hn, Font = fNotes, ForeColor = Th.Texte, BackColor = Th.Carte });
-    lMajInfo = new Label { Text = "L'installer maintenant ? Tes réglages et tes statistiques sont conservés, et le logiciel redémarre tout seul.", Left = M + 1, Top = 116 + hn, Width = LT, Height = 56, Font = new Font("Segoe UI", 10f), ForeColor = Th.Discret, BackColor = Th.Carte };
+    lMajInfo = new Label { Text = "Une nouvelle version du logiciel est disponible. L'installer maintenant ? Tes réglages et tes statistiques sont conservés, et le logiciel redémarre tout seul.", Left = M + 1, Top = 82, Width = LT, Height = 66, Font = new Font("Segoe UI", 10f), ForeColor = Th.Discret, BackColor = Th.Carte };
     c.Controls.Add(lMajInfo);
     int yb = hc - 76, lb = (LT - 12) / 2;
     bMajNon = new BoutonRond { Text = "Non", Left = M, Top = yb, Width = lb, Height = 50, Font = new Font("Segoe UI Semibold", 12f) };

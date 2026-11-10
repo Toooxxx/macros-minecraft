@@ -118,7 +118,7 @@ Pasteques et citrouilles
 11. MISES A JOUR
 ----------------
 - A l'ouverture du menu, le logiciel regarde s'il existe une nouvelle version (sur GitHub).
-  Si oui, une fenetre apparait au milieu du menu avec les nouveautes : Oui installe puis redemarre le
+  Si oui, une fenetre apparait au milieu du menu : Oui installe puis redemarre le
   logiciel, Non ferme la fenetre (elle reviendra a la prochaine ouverture).
 - Apres une mise a jour, une fenetre affiche une fois les nouveautes, y compris celles des versions
   que tu as sautees.

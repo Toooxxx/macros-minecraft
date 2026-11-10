@@ -1,2 +1,1 @@
-6
-Fenetre des nouveautes apres chaque mise a jour.
+7

@@ -1,3 +1,6 @@
+[7]
+- La fenêtre de mise à jour est plus simple : le détail des nouveautés est affiché après l'installation.
+
 [6]
 - Nouvelle fenêtre « Nouveautés » après chaque mise à jour, avec aussi les versions que tu as sautées.
 
