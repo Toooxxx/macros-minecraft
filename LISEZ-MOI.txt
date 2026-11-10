@@ -81,7 +81,7 @@ Pasteques et citrouilles
 - Options dans le menu : slot de la canne (1 par defaut), attente avant de relancer, relance si
   rien ne mord, nombre maximum de poissons, reglages du mini-jeu.
 - Onglet Vente (desactive par defaut) : vend au Dial toutes les X minutes, ligne rentree, jamais
-  pendant le mini-jeu. Regle le slot du Dial : il doit etre different de celui de la canne.
+  pendant le mini-jeu. Regle le slot du Dial (2 par defaut) : il doit etre different de celui de la canne.
   La premiere vente arrive X minutes apres le lancement.
 
 8. AUTOCLICK
