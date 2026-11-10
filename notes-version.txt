@@ -1,24 +1,9 @@
-[7]
-- La fenêtre de mise à jour est plus simple : le détail des nouveautés est affiché après l'installation.
-
-[6]
-- Nouvelle fenêtre « Nouveautés » après chaque mise à jour, avec aussi les versions que tu as sautées.
-
-[5]
-- Nouvelle fenêtre de mise à jour au milieu du menu, aux couleurs du logiciel : Oui installe et redémarre, Non la ferme.
-
-[4]
-- Mine 3x3 : l'attente au fond et le nombre de tours sont dans l'onglet principal.
-- Mine 3x3 : l'onglet Avancé ne garde que les limites X et la hauteur du tunnel.
-
-[3]
-- Mine 3x3 : attente au fond, nombre de tours, limites X et hauteur du tunnel réglables.
-
-[2]
-- Page de vérification de l'écran au premier lancement.
-- Mine 3x3 (Mine 1 et Mine 2) dans l'onglet Minage, et un onglet Autoclick séparé.
-- Cultures : pastèques et citrouilles.
-- Pêche : vente au dial toutes les X minutes.
+[8 V1]
+- Première version officielle du logiciel !
+- Canne à sucre, pastèques et citrouilles, avec retour automatique au départ.
+- Mine 3x3 : Mine 1 et Mine 2, attente au fond, nombre de tours et limites réglables.
+- Pêche avec mini-jeu automatique et vente au dial toutes les X minutes.
+- Autoclick : clic gauche ou droit, clics répétés ou maintenu, vente au dial.
+- Vente avec Vote Party pour la canne et l'autoclick.
 - Onglet Sécurité partout : arrêt automatique si tu es téléporté.
-- Vote Party dans la vente de la canne et de l'autoclick.
-- Si plusieurs Minecraft sont ouverts, les macros utilisent Lunar.
+- Mises à jour installées directement depuis le logiciel.

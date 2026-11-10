@@ -1390,21 +1390,23 @@ public class FermeCanne : Form {
       string fn = Path.Combine(dossier, "notes-version.txt");
       if (!File.Exists(fn)) return false;
       var sections = new SortedDictionary<int, List<string>>();
+      var noms = new Dictionary<int, string>();   // nom public de la version : [8 V1] -> numero interne 8, affiche V1
       List<string> cur = null;
       foreach (var brute in File.ReadAllLines(fn)) {
-        var m = Regex.Match(brute, @"^\[(\d+)\]\s*$");
-        if (m.Success) { int n = int.Parse(m.Groups[1].Value); cur = new List<string>(); sections[n] = cur; continue; }
+        var m = Regex.Match(brute, @"^\[(\d+)(?:\s+([^\]]+))?\]\s*$");
+        if (m.Success) { int n = int.Parse(m.Groups[1].Value); cur = new List<string>(); sections[n] = cur; if (m.Groups[2].Success) noms[n] = m.Groups[2].Value.Trim(); continue; }
         if (cur != null && brute.Trim() != "") cur.Add(Regex.Replace(brute.Trim(), @"^-\s*", ""));
       }
       var liste = new List<int>();
       foreach (var k in sections.Keys) if (k > de && k <= v) liste.Add(k);
       if (liste.Count == 0) return false;
       liste.Reverse();   // la plus recente en haut
-      AfficherNouveautes(liste, sections);
+      AfficherNouveautes(liste, sections, noms);
       return true;
     } catch { return false; }
   }
-  void AfficherNouveautes(List<int> versions, SortedDictionary<int, List<string>> sections) {
+  void AfficherNouveautes(List<int> versions, SortedDictionary<int, List<string>> sections, Dictionary<int, string> noms) {
+    Func<int, string> nom = k => noms.ContainsKey(k) ? noms[k] : "Version " + k;
     PreparerVoile();
     int w = voileMaj.Width, h = voileMaj.Height;
     const int L = 560, M = 32, LT = L - 2 * M;
@@ -1412,7 +1414,7 @@ public class FermeCanne : Form {
     var zone = new Panel { Left = M, Top = 102, Width = LT, AutoScroll = true, BackColor = Th.Carte };
     int y = 0, lt = LT - 22;
     foreach (int n in versions) {
-      zone.Controls.Add(new Label { Text = "Version " + n, Left = 1, Top = y, Width = lt, Height = 28, Font = fTitre, ForeColor = Th.Accent, BackColor = Th.Carte, Tag = "accent-texte" });
+      zone.Controls.Add(new Label { Text = nom(n), Left = 1, Top = y, Width = lt, Height = 28, Font = fTitre, ForeColor = Th.Accent, BackColor = Th.Carte, Tag = "accent-texte" });
       y += 30;
       foreach (var ligne in sections[n]) {
         string t = "•  " + ligne;
@@ -1427,7 +1429,7 @@ public class FermeCanne : Form {
     int yb = 102 + hs + 16, hc = yb + 50 + 26;
     var c = new CarteRonde { Width = L, Height = hc, Left = (w - L) / 2, Top = Math.Max(16, (h - hc) / 2), Remplissage = Th.Carte, Anchor = AnchorStyles.None };
     c.Controls.Add(new Label { Text = "Nouveautés", Left = M, Top = 26, Width = LT, Height = 40, Font = new Font("Segoe UI Semibold", 18f), ForeColor = Th.Texte, BackColor = Th.Carte });
-    string sous = versions.Count == 1 ? "Le logiciel est en version " + versions[0] : "Tu passes à la version " + versions[0] + " : voici aussi ce que tu as manqué";
+    string sous = versions.Count == 1 ? "Tu es maintenant sur : " + nom(versions[0]) : "Tu es maintenant sur : " + nom(versions[0]) + ". Voici aussi ce que tu as manqué";
     c.Controls.Add(new Label { Text = sous, Left = M + 1, Top = 68, Width = LT, Height = 24, Font = new Font("Segoe UI", 10f), ForeColor = Th.Discret, BackColor = Th.Carte });
     c.Controls.Add(zone);
     var ok = new BoutonRond { Text = "Compris", Principal = true, Left = M, Top = yb, Width = LT, Height = 50, Font = new Font("Segoe UI Semibold", 12f) };

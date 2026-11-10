@@ -1,5 +1,5 @@
-MACROS MINECRAFT : canne, pasteques, citrouilles, mine 3x3, peche, autoclick
-============================================================================
+MACROS MINECRAFT V1 : canne, pasteques, citrouilles, mine 3x3, peche, autoclick
+===============================================================================
 
 1. INSTALLATION (rien a installer)
 ---------------------------------
