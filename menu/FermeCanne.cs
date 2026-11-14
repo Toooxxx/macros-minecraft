@@ -812,7 +812,7 @@ public class FermeCanne : Form {
     Separateur(sc[2], "ANTI-LAG", ref y);
     antiLag = Case(sc[2], "Anti-lag en fin de tour", ref y, false);
     antiLagS = Num(sc[2], "Attente au spawn (s)", ref y, 10, 600, 60, 10);
-    Aide(sc[2], "Après le 12e étage : /spawn, attente, /is go, puis /home canne pour reprendre. Les objets laissés au sol disparaissent pendant ce temps, ce qui évite la chute de FPS.", ref y);
+    Aide(sc[2], "Après le 12e étage : /spawn, attente, /is go, puis le /home de la canne (Options > Homes) pour reprendre. Les objets laissés au sol disparaissent pendant ce temps, ce qui évite la chute de FPS.", ref y);
     antiLag.CheckedChanged += (s, e) => { antiLagS.Enabled = antiLag.Checked && !EnCours(); Sauver(); };
     antiLagS.ValueChanged += (s, e) => Sauver();
     antiLagS.Enabled = false;
@@ -845,7 +845,7 @@ public class FermeCanne : Form {
     acSeuil.ValueChanged += (s, e) => Multiple64(acSeuil);
 
     pageTheme = Page("Options");
-    var so = Sections(pageTheme, "Apparence", "Touches", "Divers");
+    var so = Sections(pageTheme, "Apparence", "Touches", "Divers", "Homes");
     int yt = 8;
     thParMode = Case(so[0], "Une couleur par mode (culture, minage, pêche, autoclick)", ref yt, true);
     thParMode.CheckedChanged += (s, e) => { Th.ParMode = thParMode.Checked; if (Th.ParMode) Th.Accent = CouleurMode(dernierMode); AppliquerAccent(); Sauver(); };
@@ -887,6 +887,18 @@ public class FermeCanne : Form {
     bTester.Click += (s, e) => { if (bTester.Enabled) TesterEcran(); };
     so[2].Controls.Add(bTester); yt += 50;
     Aide(so[2], "Le jeu ouvert et visible, les cannes en main : le script lit les coordonnées, le compteur d'objets, l'argent et le VoteParty, sans toucher au jeu. Le résultat s'affiche dans le journal. Le menu se cache une seconde pendant la lecture.", ref yt);
+    // Noms des homes (14/11/2026) : chaque joueur choisit le nom de ses /sethome ; les scripts tapent /home <nom choisi>.
+    yt = 8;
+    Aide(so[3], "Le nom de tes homes, à poser avec /sethome <nom> à l'endroit indiqué. Lettres, chiffres, - et _ seulement. Le regard n'a pas d'importance : la macro le règle elle-même.", ref yt);
+    foreach (var h in HomesDef) {
+      so[3].Controls.Add(new Label { Text = h[1], Left = 24, Top = yt + 1, Width = 250, Height = 20, ForeColor = Th.Texte, BackColor = Th.Carte, Font = new Font("Segoe UI Semibold", 9.5f) });
+      so[3].Controls.Add(new Label { Text = h[3], Left = 24, Top = yt + 21, Width = 256, Height = 18, ForeColor = Th.Discret, BackColor = Th.Carte, Font = new Font("Segoe UI", 8.5f) });
+      var tb = new TextBox { Text = h[2], Left = 288, Top = yt + 6, Width = 136, MaxLength = 32, BorderStyle = BorderStyle.FixedSingle, BackColor = Th.Champ, ForeColor = Th.Texte, Font = new Font("Segoe UI", 10f) };
+      string cle = h[0], defaut = h[2];
+      tb.Leave += (s, e) => { var t = (TextBox)s; if (!NomHomeValide(t.Text.Trim())) { Ecrire("Nom de home refusé (" + t.Text + ") : lettres, chiffres, - et _ seulement. Retour à « " + defaut + " ».", Jaune); t.Text = defaut; } else t.Text = t.Text.Trim(); Sauver(); };
+      homes[cle] = tb; so[3].Controls.Add(tb);
+      yt += 50;
+    }
 
     pageStats = Page("Statistiques");
     // choix de la categorie : tout, ou une seule (chaque categorie a ses propres totaux et son graphique)
@@ -952,7 +964,7 @@ public class FermeCanne : Form {
     blVente.CheckedChanged += (s, e) => { blSlotDial.Enabled = blVenteTous.Enabled = blVente.Checked && !EnCours(); Sauver(); };
     Aide(sb[1], "La vente se fait dans le couloir, à l'arrêt, entre deux passages : le script prend le dial, fait un clic gauche, puis reprend l'outil. Un étage a 24 passages : tous les 2 = 12 ventes par étage, tous les 4 = 6.", ref ybv);
     foreach (var n in new[] { blTours, blAttente, blSlotOutil, blSlotDial, blVenteTous }) n.ValueChanged += (s, e) => Sauver();
-    Aide(sb[0], "Le script part du passage choisi, finit l'étage, monte à l'échelle (blé X 61, carottes X 149, couloir Z 38), fait l'étage 2, tape /home ble ou /home carotte, attend le temps réglé, puis recommence au début (étage 1, passage 1).", ref yb);
+    Aide(sb[0], "Le script part du passage choisi, finit l'étage, monte à l'échelle (blé X 61, carottes X 149, couloir Z 38), fait l'étage 2, tape le /home du champ (Options > Homes), attend le temps réglé, puis recommence au début (étage 1, passage 1).", ref yb);
     Aide(sb[0], "Dans le jeu : F3 fermé, coordonnées affichées en haut à gauche, outil 3x3 en main, à l'endroit indiqué ci-dessus (dans le bon couloir, à quelques blocs près, la macro va elle-même sur la ligne), puis la touche pause (F7 par défaut). /sethome ble en X -21, Y -2, Z 38 ; /sethome carotte en X 67, Y -2, Z 38.", ref yb);
     Securite(sb[2], out blStopTP, out blTPBlocs);
 
@@ -978,7 +990,7 @@ public class FermeCanne : Form {
     vrVente.CheckedChanged += (s, e) => { vrSlotDial.Enabled = vrVenteTous.Enabled = vrVente.Checked && !EnCours(); Sauver(); };
     Aide(sv[1], "La vente se fait dans le couloir, à l'arrêt, entre deux passages : le script prend le dial, fait un clic gauche, puis reprend l'outil. Un étage a 18 passages : tous les 2 = 9 ventes par étage, tous les 3 = 6.", ref yvv);
     foreach (var n in new[] { vrTours, vrAttente, vrSlotOutil, vrSlotDial, vrVenteTous }) n.ValueChanged += (s, e) => Sauver();
-    Aide(sv[0], "Le script part du passage choisi, finit l'étage, monte à l'échelle (X 96 aux étages impairs, X 149 aux pairs, couloir Z -85), et ainsi de suite jusqu'à l'étage 10, tape /home verrue, attend le temps réglé, puis recommence au début (étage 1, passage 1).", ref yv);
+    Aide(sv[0], "Le script part du passage choisi, finit l'étage, monte à l'échelle (X 96 aux étages impairs, X 149 aux pairs, couloir Z -85), et ainsi de suite jusqu'à l'étage 10, tape le /home du nether wart (Options > Homes), attend le temps réglé, puis recommence au début (étage 1, passage 1).", ref yv);
     Aide(sv[0], "Dans le jeu : F3 fermé, coordonnées affichées en haut à gauche, outil 3x3 en main, à l'endroit indiqué ci-dessus (dans le bon couloir, à quelques blocs près, la macro va elle-même sur la ligne), puis la touche pause (F7 par défaut). /sethome verrue : en X 148, Y -2, Z -85.", ref yv);
     Securite(sv[2], out vrStopTP, out vrTPBlocs);
 
@@ -1237,7 +1249,7 @@ public class FermeCanne : Form {
     Bulle(marge, "Sur la dernière traversée, le clic est relâché à ce nombre de blocs du mur, pour ne pas casser l'échelle.");
     Bulle(regard, "Remet le regard bien droit avec F3 au début de chaque étage.");
     Bulle(sonsActive, "Bip à la fin de chaque étage et de chaque tour. Les alarmes sonnent toujours.");
-    Bulle(antiLag, "Après le 12e étage : /spawn, attente, /is go puis /home canne. Les objets au sol disparaissent et les FPS remontent.");
+    Bulle(antiLag, "Après le 12e étage : /spawn, attente, /is go puis le /home de la canne. Les objets au sol disparaissent et les FPS remontent.");
     Bulle(antiLagS, "Temps passé au spawn, en plus des 3 s du téléport.");
     Bulle(acBouton, "Bouton de la souris utilisé pour miner.");
     Bulle(acMode, "Clics : clics répétés. Maintenu : bouton enfoncé en continu.");
@@ -1567,10 +1579,19 @@ public class FermeCanne : Form {
         string depot = File.ReadAllLines(Path.Combine(dossier, "depot.txt"))[0].Trim();
         if (!Regex.IsMatch(depot, @"^[\w.-]+/[\w.-]+$")) return;
         System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
-        var req = System.Net.WebRequest.Create("https://raw.githubusercontent.com/" + depot + "/main/version.txt?t=" + Environment.TickCount);
-        req.Timeout = 4000;
-        string texte;
-        using (var rep = req.GetResponse()) using (var sr = new StreamReader(rep.GetResponseStream())) texte = sr.ReadToEnd();
+        // 14/11/2026 : raw.githubusercontent.com garde version.txt jusqu'a 5 min en cache (le ?t= n'y change rien) : un ami qui
+        // relance juste apres la publication ne voyait rien. L'API GitHub (cache 60 s) d'abord, raw en secours (limite de l'API atteinte...).
+        string texte = null;
+        try {
+          var api = (System.Net.HttpWebRequest)System.Net.WebRequest.Create("https://api.github.com/repos/" + depot + "/contents/version.txt?ref=main");
+          api.UserAgent = "macros-minecraft"; api.Accept = "application/vnd.github.raw"; api.Timeout = 4000;
+          using (var rep = api.GetResponse()) using (var sr = new StreamReader(rep.GetResponseStream())) texte = sr.ReadToEnd();
+        } catch { texte = null; }
+        if (NumeroVersion(texte) == 0) {
+          var req = System.Net.WebRequest.Create("https://raw.githubusercontent.com/" + depot + "/main/version.txt?t=" + Environment.TickCount);
+          req.Timeout = 4000;
+          using (var rep = req.GetResponse()) using (var sr = new StreamReader(rep.GetResponseStream())) texte = sr.ReadToEnd();
+        }
         string fv = Path.Combine(dossier, "version.txt");
         int distante = NumeroVersion(texte), locale = NumeroVersion(File.Exists(fv) ? File.ReadAllText(fv) : "");
         if (distante <= locale) return;
@@ -1821,7 +1842,7 @@ public class FermeCanne : Form {
   }
   string OuSePlacer(int n) {
     string regardTxt = n % 2 == 1 ? "est" : "ouest", pos;
-    if (n == 1) return "Fais /home canne (départ en 19 107 -80), regard vers l'est.";
+    if (n == 1) return "Fais /home " + Home("canne") + " (départ en 19 107 -80), regard vers l'est.";
     if (departs.TryGetValue(n, out pos)) return "Place-toi en " + pos + ", colle au mur de départ, regard vers l'" + regardTxt + ".";
     return "Départ de cet étage pas encore connu (en haut de l'échelle de l'étage " + (n - 1) + "), regard vers l'" + regardTxt + ".";
   }
@@ -2007,7 +2028,9 @@ public class FermeCanne : Form {
           Script, etage.Value, venteActive.Checked ? (int)seuil.Value : 0, (int)venteMs.Value, new[] { 2, 25, 3 }[pas.SelectedIndex], (int)marge.Value, regard.Checked ? "1" : "0", (int)tours.Value);
     args += string.Format(" -TouchePause {0} -ToucheArret {1} -RepondreVerif {2}", tPause.Vk, tArret.Vk, verifActive.Checked ? 1 : 0);
     if (mode == 6) args += " -Culture citrouille";
-    if (mode == 11) args += " -XMin 66 -HomeRetour carotte -NomCulture carotte";   // carottes : le champ du ble decale de +88 en X (depart X 67 Y -2 Z 38)
+    if (mode == 11) args += " -XMin 66 -NomCulture carotte";   // carottes : le champ du ble decale de +88 en X (depart X 67 Y -2 Z 38)
+    if (mode == 0) args += " -HomeCanne " + Home("canne");
+    else if (HomeReco(mode) != null) args += (modeMine ? " -HomeMine " : " -HomeRetour ") + HomeReco(mode);   // noms choisis dans Options > Homes
     if (mode == 0) args += " -Sons " + (sonsActive.Checked ? 1 : 0);
     if (mode == 0) args += " -VoteSlots " + (int)voteSlots.Value;
     if (mode == 0 && antiLag.Checked) args += " -AntiLag 1 -AntiLagS " + (int)antiLagS.Value;
@@ -2158,10 +2181,30 @@ public class FermeCanne : Form {
   Timer recoVeille, recoCompte; string logJeu; long logPos; bool kickVu, departAuto, recoDeco; int modeReco = -1, recoEssais; DateTime recoFin; Process procReco;
   static readonly Regex KickServeur = new Regex(@"You were kicked from \S+: Server closed");
   static readonly Regex DecoClient = new Regex(@"Client disconnected with reason");
+  // Homes de chaque ferme : cle, nom affiche, nom par defaut, ou poser le /sethome (memes positions que les scripts attendent apres le /home)
+  static readonly string[][] HomesDef = {
+    new[] { "canne", "Canne à sucre", "canne", "X 19 · Y 107 · Z -80 (départ du 1er étage)" },
+    new[] { "pasteque", "Pastèque", "pasteque", "X -148 · Y -3 · Z 39 (début de la rangée 1)" },
+    new[] { "citrouille", "Citrouille", "citrouille", "X -27 · Y -3 · Z 39 (début de la rangée 1)" },
+    new[] { "ble", "Blé", "ble", "X -21 · Y -2 · Z 38 (couloir nord, 1re ligne)" },
+    new[] { "carotte", "Carotte", "carotte", "X 67 · Y -2 · Z 38 (couloir nord, 1re ligne)" },
+    new[] { "verrue", "Nether wart", "verrue", "X 148 · Y -2 · Z -85 (couloir sud, 1re ligne)" },
+    new[] { "mine1", "Mine 1", "mine1", "X -140 · Y -3 · dans le tunnel (vers l'est)" },
+    new[] { "mine2", "Mine 2", "mine2", "X 128 · Y -3 · dans le tunnel (vers l'ouest)" },
+  };
+  Dictionary<string, TextBox> homes = new Dictionary<string, TextBox>();
+  // Le nom part dans le chat (/home <nom>) et sur la ligne de commande des scripts : rien d'autre que lettres, chiffres, - et _.
+  static bool NomHomeValide(string n) { return Regex.IsMatch(n ?? "", @"^[A-Za-z0-9_-]{1,32}$"); }
+  string Home(string cle) {
+    TextBox t; string n = homes.TryGetValue(cle, out t) ? t.Text.Trim() : null;
+    if (NomHomeValide(n)) return n;
+    foreach (var h in HomesDef) if (h[0] == cle) return h[2];
+    return cle;
+  }
   string HomeReco(int m) {
     switch (m) {
-      case 0: return "canne"; case 5: return "pasteque"; case 6: return "citrouille";
-      case 8: return "mine" + (miMine.SelectedIndex + 1); case 9: return "ble"; case 10: return "verrue"; case 11: return "carotte";
+      case 0: return Home("canne"); case 5: return Home("pasteque"); case 6: return Home("citrouille");
+      case 8: return Home("mine" + (miMine.SelectedIndex + 1)); case 9: return Home("ble"); case 10: return Home("verrue"); case 11: return Home("carotte");
       default: return null;   // peche et autoclick : pas de /home de depart
     }
   }
@@ -2266,7 +2309,7 @@ public class FermeCanne : Form {
   void Sauver() {
     if (chargement) return;
     try {
-      File.WriteAllLines(FichierReglages, new[] {
+      var lignes = new List<string> {
         "etage=" + etage.Value, "tours=" + tours.Value, "vente=" + (venteActive.Checked ? 1 : 0), "seuil=" + seuil.Value, "venteMs=" + venteMs.Value,
         "marge=" + marge.Value, "regard=" + (regard.Checked ? 1 : 0), "sons=" + (sonsActive.Checked ? 1 : 0), "pas=" + new[] { 0, 2, 1 }[pas.SelectedIndex],
         "antiLag=" + (antiLag.Checked ? 1 : 0), "antiLagS=" + antiLagS.Value, "voteSlots=" + voteSlots.Value,
@@ -2283,7 +2326,9 @@ public class FermeCanne : Form {
         "reco=" + (recoActive.Checked ? 1 : 0), "recoMin=" + recoMin.Value,
         "rpBle=" + RepriseIni("ble"), "rpCarotte=" + RepriseIni("carotte"), "rpVerrue=" + RepriseIni("verrue"),
         "miniX=" + (miniPos.HasValue ? miniPos.Value.X : -99999), "miniY=" + (miniPos.HasValue ? miniPos.Value.Y : -99999),
-        "parMode=" + (Th.ParMode ? 1 : 0), "arc=" + (thArc.Checked ? 1 : 0), "contour=" + (thContour.Checked ? 1 : 0), "accent=" + string.Format("{0:X2}{1:X2}{2:X2}", AccentRetenu.R, AccentRetenu.G, AccentRetenu.B) });
+        "parMode=" + (Th.ParMode ? 1 : 0), "arc=" + (thArc.Checked ? 1 : 0), "contour=" + (thContour.Checked ? 1 : 0), "accent=" + string.Format("{0:X2}{1:X2}{2:X2}", AccentRetenu.R, AccentRetenu.G, AccentRetenu.B) };
+      foreach (var h in HomesDef) lignes.Add("home_" + h[0] + "=" + Home(h[0]));
+      File.WriteAllLines(FichierReglages, lignes);
     } catch { }
   }
   void Charger() {
@@ -2293,6 +2338,7 @@ public class FermeCanne : Form {
       var d = new Dictionary<string, int>();
       foreach (var l in File.ReadAllLines(FichierReglages)) {
         var p = l.Split('='); int v; if (p.Length == 2 && int.TryParse(p[1], out v)) d[p[0]] = v;
+        TextBox tb; if (p.Length == 2 && p[0].StartsWith("home_") && homes.TryGetValue(p[0].Substring(5), out tb) && NomHomeValide(p[1].Trim())) tb.Text = p[1].Trim();
       }
       int x;
       if (d.TryGetValue("ecranVerifie", out x)) ecranVerifie = x == 1;

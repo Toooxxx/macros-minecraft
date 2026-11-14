@@ -1,3 +1,7 @@
+[10 V1.2]
+- Nouvel onglet Options > Homes : choisis le nom de chaque home (canne, pastèque, citrouille, blé, carotte, nether wart, mines), avec l'endroit où faire le /sethome.
+- Mine : le regard se règle tout seul au départ et après chaque /home (droit devant, vers l'est pour la mine 1, vers l'ouest pour la mine 2).
+- Les mises à jour sont vues tout de suite après leur sortie.
 [9 V1.1]
 - Nouvelles fermes : blé, carottes et nether wart, avec montée aux échelles, /home à la fin et reprise au dernier arrêt.
 - Vente au dial possible dans le blé, les carottes et le nether wart.

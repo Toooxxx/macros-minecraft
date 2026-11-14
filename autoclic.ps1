@@ -41,7 +41,7 @@ $Dossier = Split-Path -Parent $MyInvocation.MyCommand.Path
 # Mine 3x3 : clic gauche maintenu en avancant. /home mine1 et /home mine2 autorises par l'utilisateur le 10/11/2026.
 $MineDepartX = 0; $MineSens = 1
 if ($Mine -gt 0) {
-  $Avancer = 1; $Mode = 'maintien'; $Bouton = 'gauche'; $HomeMine = "mine$Mine"
+  $Avancer = 1; $Mode = 'maintien'; $Bouton = 'gauche'; if ($HomeMine -eq 'm') { $HomeMine = "mine$Mine" }   # nom choisi dans le menu (Options > Homes), sinon mine1 / mine2
   if ($Mine -eq 1) { $MineDepartX = -140; $MineSens = 1 } else { $MineDepartX = 128; $MineSens = -1 }
 }
 Add-Type -AssemblyName System.Windows.Forms
@@ -90,6 +90,23 @@ function Bouton($bas) {
   $script:Tenu = $bas
 }
 function Relacher-Tout { if ($script:Tenu) { Bouton $false }; [Entree]::ClicGauche($false); (Clic-Droit $false); $script:Tenu = $false; Lacher }
+# Calibrage du regard de la mine (14/11/2026) : lecture de F3 et calibrage repris tels quels de recolte.ps1 (une seule version).
+# Mine 1 vers l'est : -90 ; mine 2 vers l'ouest : 90 ; droit devant : 0.
+$srcR = Get-Content (Join-Path $Dossier 'recolte.ps1') -Raw
+foreach ($bloc in @(@('# ------------------------------- Regard', '# Tape une commande'), @('$script:DegresParPoint = $null', 'function Stop-Recolte'))) {
+  $a = $srcR.IndexOf($bloc[0]); $b = if ($a -ge 0) { $srcR.IndexOf($bloc[1], $a) } else { -1 }
+  if ($b -lt 0) { throw "recolte.ps1 : fonctions du regard introuvables" }
+  Invoke-Expression ($srcR.Substring($a, $b - $a))
+}
+function Basculer-F3 { [Entree]::Touche(0x3D, $true); Start-Sleep -Milliseconds 60; [Entree]::Touche(0x3D, $false) }
+function Bouger-Souris($dx, $dy) { [Entree]::Souris($dx, $dy) }
+function Cliquer-Une-Fois { [Entree]::ClicGauche($true); Start-Sleep -Milliseconds 40; [Entree]::ClicGauche($false) }
+function Stop-Recolte($msg) { Stop-Mine $msg }
+function Caler-Mine {
+  if ($Mine -le 0) { return }
+  Caler-Regard $(if ($MineSens -gt 0) { -90.0 } else { 90.0 }) 0.0
+  if (-not $script:Arret -and -not $script:RegardPile) { Write-Host "Mine : regard pas calibre, on garde celui du /home." -ForegroundColor Yellow }
+}
 # touche d'avance (mine en ligne droite) ; memes noms que la ferme : verification.ps1 la reprend apres une verification
 function Enfoncer($t) { [Entree]::Touche($t, $true); $script:ToucheTenue = $t }
 function Lacher { if ($null -ne $script:ToucheTenue) { [Entree]::Touche($script:ToucheTenue, $false); $script:ToucheTenue = $null } }
@@ -434,6 +451,8 @@ function Retour-Mine {
   if (-not (Taper-Commande "home $HomeMine")) { return }
   if (Dormir 2500) { if ($script:Arret) { return } }
   Couper-Vol
+  Caler-Mine
+  if ($script:Arret) { return }
   $p = $null; $d = 99
   for ($n = 0; $n -lt 5; $n++) {                                           # le serveur peut mettre quelques secondes a teleporter
     $p = Lire-Coord
@@ -523,6 +542,8 @@ function Autoclick {
   Write-Host $(if ($Mine -gt 0) { "Mine lancee." } else { "Autoclick lance." })
   Detecter-Interface
   if ($Avancer -eq 1) { Couper-Vol }   # mine : le joueur se deplace (l'autoclick sur place n'en a pas besoin)
+  Caler-Mine
+  if ($script:Arret) { return }
   Suivre-Argent $true
   if ($StopTP -gt 0) {
     $p0 = Lire-Coord

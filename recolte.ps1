@@ -217,7 +217,7 @@ function Tic {
 $script:DerPos = $null; $script:DerLecture = 0
 $script:Axe = $null; $script:AxePerp = $null; $script:SensAxe = 0; $script:SensPerp = 0
 # Les citrouilles sont le miroir des pasteques : regard, sens des rangees et cote de depart inverses, ainsi que le /home.
-if ($Culture -eq 'citrouille') { $HomeRetour = 'citrouille' }
+if ($Culture -eq 'citrouille' -and $HomeRetour -eq 'pasteque') { $HomeRetour = 'citrouille' }   # sauf nom choisi dans le menu (Options > Homes)
 $script:Cap1 = if ($Culture -eq 'citrouille') { 90.0 } else { -90.0 }     # regard de l'etage 1 (F3 : -90 = est, 90 = ouest)
 $script:Cap2 = -$script:Cap1                                              # regard de l'etage du dessus, apres le demi-tour
 $script:Sens1 = if ($script:Cap1 -lt 0) { 'droite' } else { 'gauche' }    # touche vers le sud a l'etage 1
@@ -233,10 +233,11 @@ function Ecart-Angle($cible, $a) { $d = ($cible - $a) % 360; if ($d -gt 180) { $
 
 # Debut de tour, joueur arrete : ouvre F3, tourne la souris plein est (-90) et a une inclinaison tiree entre 35 et 40,
 # referme F3. En cas d'echec on continue avec le regard actuel (il n'a aucune raison d'avoir bouge).
-function Caler-Regard($cibleYaw = -90.0) {
+# Inclinaison imposee ($ciblePitch) : la mine (autoclic.ps1) reprend cette fonction pour regarder droit devant (0).
+function Caler-Regard($cibleYaw = -90.0, $ciblePitch = $null) {
   $script:RegardPile = $false                                              # vrai seulement si ce calibrage reussit
   if (-not (Au-Premier-Plan)) { return }
-  $ciblePitch = [Math]::Round(35.0 + (Get-Random -Minimum 0.0 -Maximum 5.0), 1)
+  if ($null -eq $ciblePitch) { $ciblePitch = [Math]::Round(35.0 + (Get-Random -Minimum 0.0 -Maximum 5.0), 1) }
   Basculer-F3
   Start-Sleep -Milliseconds 400
   try {

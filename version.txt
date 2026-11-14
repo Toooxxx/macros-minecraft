@@ -1,2 +1,2 @@
-9
-Version V1.1 : ble, carottes, nether wart, reconnexion automatique, fly coupe au demarrage.
+10
+Version V1.2 : noms des homes au choix, regard de la mine calibre, mises a jour vues tout de suite.

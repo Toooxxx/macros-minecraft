@@ -24,7 +24,7 @@
 # =====================================================================
 
 # Reglages passes par le menu (Ferme-canne.exe). Sans eux, ceux du bloc A REGLER s'appliquent.
-param([int]$EtageDepart = 0, [int]$VenteSeuil = -1, [int]$VenteMs = -1, [int]$Pas = 0, [int]$MargeEchelle = -1, [string]$RecalerRegard = '', [int]$Tours = 0, [int]$TouchePause = 0x76, [int]$ToucheArret = 0x77, [int]$RepondreVerif = 0, [int]$Sons = 1, [int]$AntiLag = 0, [int]$AntiLagS = 60, [int]$VoteSlots = 2, [int]$Tester = 0, [int]$StopTP = 0, [int]$TPBlocs = 3)
+param([int]$EtageDepart = 0, [int]$VenteSeuil = -1, [int]$VenteMs = -1, [int]$Pas = 0, [int]$MargeEchelle = -1, [string]$RecalerRegard = '', [int]$Tours = 0, [int]$TouchePause = 0x76, [int]$ToucheArret = 0x77, [int]$RepondreVerif = 0, [int]$Sons = 1, [int]$AntiLag = 0, [int]$AntiLagS = 60, [int]$VoteSlots = 2, [int]$Tester = 0, [int]$StopTP = 0, [int]$TPBlocs = 3, [string]$HomeCanne = 'canne')
 
 # ------------------------------ A REGLER -----------------------------
 $Config = @{
@@ -1283,8 +1283,8 @@ function Anti-Lag {
 }
 function Retour-Home {
   Relacher-Tout
-  Write-Host "Retour au depart : /home canne" -ForegroundColor Cyan
-  Taper-Chat '/home canne'
+  Write-Host "Retour au depart : /home $HomeCanne" -ForegroundColor Cyan
+  Taper-Chat "/home $HomeCanne"   # nom choisi dans le menu (Options > Homes)
   if ($script:Arret) { return }
   Start-Sleep -Milliseconds 2500
   Couper-Vol
