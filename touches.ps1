@@ -13,7 +13,7 @@ function Garder-Lunar($jeux) {
   return $tous
 }
 function Lire-Touches($fichier) {
-  $resultat = @{ avant = 0x11; arriere = 0x1F; gauche = 0x1E; droite = 0x20; chat = 0x14; slots = @(0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A); lues = $false; ignorees = @() }
+  $resultat = @{ avant = 0x11; arriere = 0x1F; gauche = 0x1E; droite = 0x20; chat = 0x14; accroupi = 0x2A; slots = @(0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A); lues = $false; ignorees = @() }
   if (-not (Test-Path $fichier)) { return $resultat }
   $codes = @{
     q = 0x10; w = 0x11; e = 0x12; r = 0x13; t = 0x14; y = 0x15; u = 0x16; i = 0x17; o = 0x18; p = 0x19
@@ -24,7 +24,7 @@ function Lire-Touches($fichier) {
     enter = 0x1C; semicolon = 0x27; apostrophe = 0x28; comma = 0x33; period = 0x34; slash = 0x35; minus = 0x0C; equal = 0x0D
     'left.bracket' = 0x1A; 'right.bracket' = 0x1B; backslash = 0x2B; 'grave.accent' = 0x29
   }
-  $noms = @{ 'key_key.forward' = 'avant'; 'key_key.back' = 'arriere'; 'key_key.left' = 'gauche'; 'key_key.right' = 'droite'; 'key_key.chat' = 'chat' }
+  $noms = @{ 'key_key.forward' = 'avant'; 'key_key.back' = 'arriere'; 'key_key.left' = 'gauche'; 'key_key.right' = 'droite'; 'key_key.chat' = 'chat'; 'key_key.sneak' = 'accroupi' }
   try {
     foreach ($ligne in [IO.File]::ReadAllLines($fichier)) {
       if ($ligne -notmatch '^(key_key\.[a-z.0-9]+):key\.(keyboard\.(.+)|mouse\..+)$') { continue }
@@ -41,5 +41,15 @@ function Lire-Touches($fichier) {
 
 $script:Cles = Lire-Touches (Join-Path $env:APPDATA '.minecraft\options.txt')
 $script:Slots = $script:Cles.slots
+# 14/11/2026 : avec /fly actif, le /home pose le joueur EN VOL (recolte des pasteques bloquee au bout d'une rangee).
+# Rien dans le chat : s'accroupir en vol fait descendre, et en touchant le sol le jeu coupe le vol tout seul.
+# Au sol, s'accroupir un instant ne fait rien. A appeler au demarrage de chaque ferme et apres chaque /home.
+function Couper-Vol {
+  $k = [uint16]$script:Cles.accroupi
+  try { [Entree]::Touche($k, $true); Start-Sleep -Milliseconds 600 }
+  finally { [Entree]::Touche($k, $false) }
+  Start-Sleep -Milliseconds 250
+  Write-Host "Vol coupe s'il etait actif (accroupi 0,6 s)."
+}
 $manquantes = @($script:Cles.ignorees | Where-Object { $_ -notmatch 'hotbar' })   # une case de barre sur un bouton de souris ne gene pas
 if ($manquantes.Count -gt 0) { Write-Host ("Touches non gerees dans options.txt, valeurs par defaut utilisees : {0}" -f ($manquantes -join ', ')) }

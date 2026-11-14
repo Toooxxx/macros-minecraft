@@ -532,7 +532,10 @@ $script:PidsJeu = @(Garder-Lunar (Get-Process -Name $Config.ProgrammeJeu -ErrorA
 function Au-Premier-Plan { return $script:PidsJeu -contains [Entree]::PidDe([Entree]::FenetrePremierPlan()) }
 
 function Attendre-Relache($vk) { while ([Entree]::Appuyee($vk)) { Start-Sleep -Milliseconds 30 } }
+# Relance par le menu apres une reconnexion auto (variable MACROS_DEPART_AUTO) : la premiere attente de F7 est sautee.
+$script:DepartAuto = $env:MACROS_DEPART_AUTO -eq '1'
 function Attendre-F7 {
+  if ($script:DepartAuto) { $script:DepartAuto = $false; Write-Host "Depart automatique apres la reconnexion."; return $true }
   Attendre-Relache $TouchePause
   while (-not [Entree]::Appuyee($TouchePause)) {
     if ([Entree]::Appuyee($ToucheArret) -or (Arret-Demande)) { $script:Arret = $true; return $false }
@@ -1284,6 +1287,7 @@ function Retour-Home {
   Taper-Chat '/home canne'
   if ($script:Arret) { return }
   Start-Sleep -Milliseconds 2500
+  Couper-Vol
   $script:Valide = $null
   $p = Position-Depart
   if ($null -eq $p) { Write-Host "Position illisible apres /home : arret." -ForegroundColor Red; $script:Arret = $true; return }
@@ -1303,6 +1307,7 @@ function Recolte {
   Preparer-Zones
   Detecter-Interface
   Start-Sleep -Milliseconds 700   # le temps que le menu pause finisse de se fermer
+  Couper-Vol
   Suivre-Argent $true             # argent au depart
   $total = [Diagnostics.Stopwatch]::StartNew()
   for ($tour = 1; -not $script:Arret; $tour++) {

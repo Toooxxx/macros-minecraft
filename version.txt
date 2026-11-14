@@ -1,2 +1,2 @@
-8
-Version officielle V1.
+9
+Version V1.1 : ble, carottes, nether wart, reconnexion automatique, fly coupe au demarrage.

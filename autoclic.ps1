@@ -107,7 +107,10 @@ $script:FichierArret = Join-Path $Dossier 'arret.flag'
 if (Test-Path $script:FichierArret) { Remove-Item $script:FichierArret -Force }
 function Arret-Demande { return ([Entree]::Appuyee($ToucheArret) -or (Test-Path $script:FichierArret)) }
 function Attendre-Relache($vk) { while ([Entree]::Appuyee($vk)) { Start-Sleep -Milliseconds 30 } }
+# Relance par le menu apres une reconnexion auto (variable MACROS_DEPART_AUTO) : la premiere attente de F7 est sautee.
+$script:DepartAuto = $env:MACROS_DEPART_AUTO -eq '1'
 function Attendre-F7 {
+  if ($script:DepartAuto) { $script:DepartAuto = $false; Write-Host "Depart automatique apres la reconnexion."; return $true }
   Attendre-Relache $TouchePause
   while (-not [Entree]::Appuyee($TouchePause)) { if (Arret-Demande) { $script:Arret = $true; return $false }; Start-Sleep -Milliseconds 30 }
   Attendre-Relache $TouchePause
@@ -430,6 +433,7 @@ function Retour-Mine {
   if ($Mine -le 0) { Write-Host ("Mur atteint : retour au depart (/home {0})." -f $HomeMine) -ForegroundColor Cyan }
   if (-not (Taper-Commande "home $HomeMine")) { return }
   if (Dormir 2500) { if ($script:Arret) { return } }
+  Couper-Vol
   $p = $null; $d = 99
   for ($n = 0; $n -lt 5; $n++) {                                           # le serveur peut mettre quelques secondes a teleporter
     $p = Lire-Coord
@@ -518,6 +522,7 @@ function Autoclick {
   Start-Sleep -Milliseconds 300
   Write-Host $(if ($Mine -gt 0) { "Mine lancee." } else { "Autoclick lance." })
   Detecter-Interface
+  if ($Avancer -eq 1) { Couper-Vol }   # mine : le joueur se deplace (l'autoclick sur place n'en a pas besoin)
   Suivre-Argent $true
   if ($StopTP -gt 0) {
     $p0 = Lire-Coord

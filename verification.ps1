@@ -26,7 +26,8 @@ $script:CapturesRestantes = 0; $script:ProchaineCapture = 0; $script:DossierVeri
 
 # Journal des verifications (diagnostics\verifications.csv), lu par la page Statistiques du menu.
 # Colonnes : date;mode;nombre;reponse;resultat;dossier. Mode = celui du menu (canne, peche, autoclick).
-$script:ModeVerif = switch -Wildcard ((Split-Path -Leaf $MyInvocation.PSCommandPath)) { 'peche*' { 'peche' } 'autoclic*' { 'autoclick' } default { 'canne' } }
+# (nom vide quand ble.ps1 charge ce fichier a travers recolte.ps1 : mode canne, comme les autres cultures)
+$script:ModeVerif = switch -Wildcard ($(if ($MyInvocation.PSCommandPath) { Split-Path -Leaf $MyInvocation.PSCommandPath } else { '' })) { 'peche*' { 'peche' } 'autoclic*' { 'autoclick' } default { 'canne' } }
 function Noter-Verification($nombre, $reponse, $resultat) {
   try {
     $f = Join-Path $Dossier 'diagnostics\verifications.csv'

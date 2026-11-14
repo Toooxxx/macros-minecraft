@@ -1,3 +1,10 @@
+[9 V1.1]
+- Nouvelles fermes : blé, carottes et nether wart, avec montée aux échelles, /home à la fin et reprise au dernier arrêt.
+- Vente au dial possible dans le blé, les carottes et le nether wart.
+- Reconnexion automatique (Options > Divers) : après le redémarrage de la nuit ou un écran « Connection Lost », retour sur l'île et la ferme repart toute seule.
+- Le fly est coupé tout seul au démarrage des fermes et après chaque /home.
+- Pastèques et citrouilles : recentrage plus fiable à l'entrée des rangées.
+- Nouveau bouton Diagnostics dans le menu.
 [8 V1]
 - Première version officielle du logiciel !
 - Canne à sucre, pastèques et citrouilles, avec retour automatique au départ.

@@ -188,6 +188,42 @@ public static class IconeCulture {
       foreach (var q in new[] { new[] { 2f, 9f, 14f }, new[] { 16f, 9f, 14f }, new[] { 7f, 8f, 18f } })
         using (var b = new SolidBrush(C(q[0] == 7 ? 245 : 226, q[0] == 7 ? 146 : 118, q[0] == 7 ? 38 : 24, actif))) g.FillEllipse(b, X(q[0]), Y(q[1]), q[2] * s, 21 * s);
       using (var pen = new Pen(C(190, 92, 14, actif), 1.4f * s)) { g.DrawArc(pen, X(9), Y(9), 14 * s, 19 * s, 90, 180); g.DrawArc(pen, X(9), Y(9), 14 * s, 19 * s, 270, 180); }
+    } else if (nom == "ble") {
+      // epi de ble : tige, grains dores de chaque cote, barbes
+      using (var pen = new Pen(C(196, 160, 70, actif), 2.2f * s) { StartCap = LineCap.Round, EndCap = LineCap.Round }) g.DrawLine(pen, X(16), Y(30), X(16), Y(6));
+      using (var b = new SolidBrush(C(238, 196, 84, actif)))
+        foreach (var y in new[] { 9f, 14f, 19f })
+          foreach (var cote in new[] { -1f, 1f }) {
+            var st = g.Save();
+            g.TranslateTransform(X(16 + cote * 3.6f), Y(y + 2)); g.RotateTransform(cote * 28);
+            g.FillEllipse(b, -2.4f * s, -4f * s, 4.8f * s, 8f * s);
+            g.Restore(st);
+          }
+      using (var b = new SolidBrush(C(238, 196, 84, actif))) g.FillEllipse(b, X(13.6f), Y(2.5f), 4.8f * s, 7.5f * s);
+      using (var pen = new Pen(C(214, 170, 72, actif), 1f * s)) foreach (var dx in new[] { -5f, 0f, 5f }) g.DrawLine(pen, X(16 + dx * 0.4f), Y(3), X(16 + dx), Y(-1));
+    } else if (nom == "carotte") {
+      // carotte : racine orange en pointe, penchee, fanes vertes en haut
+      var st = g.Save();
+      g.TranslateTransform(X(16), Y(17)); g.RotateTransform(-30);
+      using (var b = new SolidBrush(C(240, 132, 32, actif)))
+        g.FillPolygon(b, new[] { new PointF(-5f * s, -8f * s), new PointF(5f * s, -8f * s), new PointF(0.8f * s, 13f * s), new PointF(-0.8f * s, 13f * s) });
+      using (var b = new SolidBrush(C(246, 160, 60, actif))) g.FillEllipse(b, -5f * s, -10f * s, 10f * s, 5f * s);
+      using (var pen = new Pen(C(196, 98, 18, actif), 1.1f * s)) foreach (var y in new[] { -3f, 2f, 7f }) g.DrawLine(pen, -2.6f * s + y * 0.12f * s, y * s, 0.6f * s, (y + 0.8f) * s);
+      using (var pen = new Pen(C(84, 170, 62, actif), 2.2f * s) { StartCap = LineCap.Round, EndCap = LineCap.Round })
+        foreach (var a in new[] { -26f, 0f, 26f }) { var r = a * (float)Math.PI / 180; g.DrawLine(pen, 0, -9f * s, (float)Math.Sin(r) * 7f * s, -9f * s - (float)Math.Cos(r) * 8f * s); }
+      g.Restore(st);
+    } else if (nom == "verrue") {
+      // nether wart : trois tiges rouge sombre aux bouts renfles, sur du sable des ames
+      using (var b = new SolidBrush(C(92, 70, 56, actif))) g.FillRectangle(b, X(3), Y(26), 26 * s, 4 * s);
+      using (var pen = new Pen(C(150, 30, 40, actif), 2.6f * s) { StartCap = LineCap.Round, EndCap = LineCap.Round }) {
+        g.DrawBezier(pen, X(9), Y(26), X(8), Y(20), X(6), Y(16), X(7), Y(12));
+        g.DrawLine(pen, X(16), Y(26), X(16), Y(8));
+        g.DrawBezier(pen, X(23), Y(26), X(24), Y(20), X(26), Y(16), X(25), Y(12));
+      }
+      using (var b = new SolidBrush(C(196, 44, 52, actif)))
+        foreach (var p in new[] { new PointF(7, 11), new PointF(16, 6.5f), new PointF(25, 11) }) g.FillEllipse(b, X(p.X - 3.4f), Y(p.Y - 3.4f), 6.8f * s, 6.8f * s);
+      using (var b = new SolidBrush(C(236, 96, 96, actif)))
+        foreach (var p in new[] { new PointF(6, 10), new PointF(15, 5.5f), new PointF(24, 10) }) g.FillEllipse(b, X(p.X - 1.1f), Y(p.Y - 1.1f), 2.2f * s, 2.2f * s);
     } else {
       // canne : trois tiges vertes a noeuds, avec une feuille
       using (var pen = new Pen(C(128, 202, 84, actif), 3.2f * s) { StartCap = LineCap.Round, EndCap = LineCap.Round }) {
@@ -553,7 +589,7 @@ public class Graphique : Control {
       yl += 22;
       for (int i = liste.Count - 1; i >= 0 && yl + 18 <= Height; i--) {
         var s = liste[i];
-        string quoi = s.Mode == "autoclick" ? "autoclick" : s.Mode == "peche" ? "pêche" : s.Mode == "recolte" ? "pastèque" : s.Mode == "citrouille" ? "citrouille" : (s.Tours > 0 ? s.Tours + " tour" + (s.Tours > 1 ? "s" : "") : s.Etages + " étage" + (s.Etages > 1 ? "s" : ""));
+        string quoi = s.Mode == "autoclick" ? "autoclick" : s.Mode == "peche" ? "pêche" : s.Mode == "recolte" ? "pastèque" : s.Mode == "citrouille" ? "citrouille" : s.Mode == "ble" ? "blé" : s.Mode == "verrue" ? "nether wart" : s.Mode == "carotte" ? "carotte" : (s.Tours > 0 ? s.Tours + " tour" + (s.Tours > 1 ? "s" : "") : s.Etages + " étage" + (s.Etages > 1 ? "s" : ""));
         TextRenderer.DrawText(g, string.Format("{0:dd/MM HH:mm}  {1,8}  {2,-10}", s.Date, Session.Duree(s.DureeS), quoi), mono, new Point(0, yl), Th.Texte);
         TextRenderer.DrawText(g, s.Gains.HasValue ? Session.Signe(s.Gains.Value) : "-", mono, new Rectangle(0, yl, Width - 92, 18), s.Gains.HasValue ? Th.Accent : Th.Discret, TextFormatFlags.Right);
         TextRenderer.DrawText(g, s.Mode == "peche" ? s.Clics + " poissons" : s.Ventes + " ventes", mono, new Rectangle(0, yl, Width, 18), Th.Discret, TextFormatFlags.Right);
@@ -571,12 +607,12 @@ public class Graphique : Control {
 // Mini-fenetre toujours au premier plan : etat, temps, ventes, gains par heure.
 // Elle ne prend jamais le focus (sinon le jeu passerait au second plan et le script se mettrait en pause).
 public class MiniFenetre : Form {
-  public string Etat = "arrêté", Temps = "-", Ventes = "-", Gains = "-"; public Color Pastille = Th.Discret;
+  public string Etat = "arrêté", Temps = "-", Ventes = "-", Gains = "-", Position = ""; public Color Pastille = Th.Discret;
   public event EventHandler Deplacee;
   Point prise; bool glisse;
   public MiniFenetre() {
     FormBorderStyle = FormBorderStyle.None; ShowInTaskbar = false; TopMost = true; StartPosition = FormStartPosition.Manual;
-    Size = new Size(264, 84); BackColor = Th.Fond; DoubleBuffered = true; Cursor = Cursors.SizeAll;
+    Size = new Size(264, 106); BackColor = Th.Fond; DoubleBuffered = true; Cursor = Cursors.SizeAll;
     using (var p = Th.Arrondi(new RectangleF(0, 0, Width, Height), 14)) Region = new Region(p);
   }
   // Invisible aux captures d'ecran (toi, tu la vois) : les scripts lisent l'ecran et voient le jeu DERRIERE elle.
@@ -603,6 +639,9 @@ public class MiniFenetre : Form {
       TextRenderer.DrawText(g, Ventes, f, new Rectangle(0, 36, Width - 16, 18), Th.Texte, TextFormatFlags.Right);
       TextRenderer.DrawText(g, Gains, f, new Rectangle(0, 56, Width - 16, 18), Th.Accent, TextFormatFlags.Right);
     }
+    // ou en est la ferme : tour, etage, traversee (ou passage, rangee), mis a jour a chaque ligne du script
+    using (var pen = new Pen(Th.Bordure, 1f)) g.DrawLine(pen, 14, 79, Width - 14, 79);
+    using (var f = new Font("Segoe UI Semibold", 9.5f)) TextRenderer.DrawText(g, Position == "" ? "–" : Position, f, new Rectangle(12, 83, Width - 24, 18), Th.Texte, TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
   }
 }
 
@@ -621,6 +660,8 @@ public class FermeCanne : Form {
   string ScriptClic { get { return Path.Combine(dossier, "autoclic.ps1"); } }
   string ScriptPeche { get { return Path.Combine(dossier, "peche.ps1"); } }
   string ScriptRecolte { get { return Path.Combine(dossier, "recolte.ps1"); } }
+  string ScriptBle { get { return Path.Combine(dossier, "ble.ps1"); } }
+  string ScriptVerrue { get { return Path.Combine(dossier, "verrue.ps1"); } }
   string FichierArret { get { return Path.Combine(dossier, "arret.flag"); } }
   string FichierReglages { get { return Path.Combine(dossier, "Ferme-canne.ini"); } }
   string FichierHistorique { get { return Path.Combine(dossier, "historique.csv"); } }
@@ -633,7 +674,7 @@ public class FermeCanne : Form {
   Segments acBouton, acMode; Nombre acIntervalle, acDuree, acClicsMax, acSeuil, acVenteMs, acSlot, acTPBlocs, acVoteSlots; Interrupteur acVente, acStopTP; Label acCps;
   Interrupteur cnStopTP, rcStopTP, pcStopTP; Nombre cnTPBlocs, rcTPBlocs, pcTPBlocs; CarteRonde pageMine;
   Pastilles thCouleurs; Panel thApercu;
-  ChoixTouche tPause, tArret; Interrupteur miniActive, verifActive;
+  ChoixTouche tPause, tArret; Interrupteur miniActive, verifActive, recoActive; Nombre recoMin;
   CarteRonde pageCanne, pageClic, pageTheme, pageStats; List<Tuile> tuiles = new List<Tuile>(); int page;
   Graphique graphique;
   BoutonRond demarrer, arreter, vider;
@@ -651,6 +692,23 @@ public class FermeCanne : Form {
   Segments miMine; Interrupteur miStopTP; Nombre miTPBlocs, miAttente, miTours, miXMin, miXMax, miY;
   bool modePeche { get { return mode == 4; } }
   bool modeRecolte { get { return mode == 5 || mode == 6; } }
+  bool modeBle { get { return mode == 9 || mode == 11; } }   // champ de ble (ble.ps1), page 9 ; 11 = carottes, meme champ decale de +88 en X, meme page de reglages
+  Nombre blTours, blAttente, blTPBlocs, blSlotOutil, blSlotDial, blVenteTous, blEtage, blPassage; Interrupteur blStopTP, blVente; CarteRonde pageBle; Label blPlace;
+  // Ou se placer pour un passage du champ de ble (memes calculs que ble.ps1) : lignes X -21, -17, -14 ... 60 a l'etage 1, a l'envers a l'etage 2
+  void MajPlaceBle() {
+    int k = (int)blPassage.Value - 1, e = (int)blEtage.Value;
+    int kk = e == 1 ? k : 23 - k;
+    int x = (page == 11 ? 66 : -22) + 7 * (kk / 2) + (kk % 2 == 0 ? 1 : 5);
+    blPlace.Text = string.Format("Place-toi en X {0}, Y {1}, Z {2} (couloir {3}), regard vers le {4}.", x, e == 1 ? -2 : 2, k % 2 == 0 ? 38 : 150, k % 2 == 0 ? "nord" : "sud", k % 2 == 0 ? "sud" : "nord");
+  }
+  bool modeVerrue { get { return mode == 10; } }   // champ de nether wart (verrue.ps1), page 10
+  Nombre vrTours, vrAttente, vrTPBlocs, vrSlotOutil, vrSlotDial, vrVenteTous, vrEtage, vrPassage; Interrupteur vrStopTP, vrVente; CarteRonde pageVerrue; Label vrPlace;
+  // Ou se placer pour un passage du nether wart (memes calculs que verrue.ps1) : lignes X 148, 145 ... 97 aux etages impairs, a l'envers aux pairs
+  void MajPlaceVerrue() {
+    int k = (int)vrPassage.Value - 1, e = (int)vrEtage.Value;
+    int x = e % 2 == 1 ? 148 - 3 * k : 97 + 3 * k;
+    vrPlace.Text = string.Format("Place-toi en X {0}, Y {1}, Z {2} (couloir {3}), regard vers le {4}.", x, -2 + 3 * (e - 1), k % 2 == 0 ? -85 : -150, k % 2 == 0 ? "sud" : "nord", k % 2 == 0 ? "nord" : "sud");
+  }
   CarteRonde pageCulture; List<BoutonRond> boutonsCulture = new List<BoutonRond>();
   Nombre rcEtage, rcRangees, rcTours; Interrupteur rcRegard; CarteRonde pageRecolte;   // toutes les fermes ont la meme taille et le meme regard (est) : le reste est fixe dans recolte.ps1
   int poissons, rates;
@@ -707,13 +765,13 @@ public class FermeCanne : Form {
     // ---------- navigation ----------
     // numero de tuile = numero de page ; Options et Statistiques : pastilles rondes a droite
     // Les cultures (0 canne, 5 pasteque, 6 citrouille) n'ont pas de tuile visible : on les choisit sur la page Culture (7).
-    var defs = new[] { new[] { "Canne à sucre", "", "canne" }, new[] { "Autoclick", "", "souris" }, new[] { "Options", "", "palette" }, new[] { "Statistiques", "", "stats" }, new[] { "Pêche", "", "poisson" }, new[] { "Pastèque", "", "canne" }, new[] { "Citrouille", "", "canne" }, new[] { "Culture", "", "canne" }, new[] { "Minage", "", "pioche" } };
-    int[] gauches = { 24, 588, 860, 920, 400, 24, 24, 24, 212 };
+    var defs = new[] { new[] { "Canne à sucre", "", "canne" }, new[] { "Autoclick", "", "souris" }, new[] { "Options", "", "palette" }, new[] { "Statistiques", "", "stats" }, new[] { "Pêche", "", "poisson" }, new[] { "Pastèque", "", "canne" }, new[] { "Citrouille", "", "canne" }, new[] { "Culture", "", "canne" }, new[] { "Minage", "", "pioche" }, new[] { "Blé", "", "canne" }, new[] { "Nether wart", "", "canne" }, new[] { "Carotte", "", "canne" } };
+    int[] gauches = { 24, 588, 860, 920, 400, 24, 24, 24, 212, 24, 24, 24 };
     var bulles = new ToolTip();
     for (int k = 0; k < defs.Length; k++) {
       int idx = k; bool petite = k == 2 || k == 3;
-      var t = new Tuile { Titre = defs[k][0], SousTitre = defs[k][1], Icone = defs[k][2], Compacte = petite, Left = gauches[k], Top = 64, Width = petite ? 56 : 176, Height = 56, Visible = k != 0 && k != 5 && k != 6,
-        Couleur = new[] { Th.Ferme, Th.Autoclick, Th.Violet, Th.Violet, Th.Peche, Th.Ferme, Th.Ferme, Th.Ferme, Th.Minage }[k] };
+      var t = new Tuile { Titre = defs[k][0], SousTitre = defs[k][1], Icone = defs[k][2], Compacte = petite, Left = gauches[k], Top = 64, Width = petite ? 56 : 176, Height = 56, Visible = k != 0 && k != 5 && k != 6 && k != 9 && k != 10 && k != 11,
+        Couleur = new[] { Th.Ferme, Th.Autoclick, Th.Violet, Th.Violet, Th.Peche, Th.Ferme, Th.Ferme, Th.Ferme, Th.Minage, Th.Ferme, Th.Ferme, Th.Ferme }[k] };
       if (petite) bulles.SetToolTip(t, defs[k][0]);
       t.Click += (s, e) => { if (t.Enabled) Montrer(idx); };
       tuiles.Add(t); Controls.Add(t);
@@ -817,6 +875,13 @@ public class FermeCanne : Form {
     Separateur(so[2], "VÉRIFICATION AFK", ref yt);
     verifActive = Case(so[2], "Répondre seul (écrit le nombre dans le chat)", ref yt, false);
     verifActive.CheckedChanged += (s, e) => Sauver();
+    Separateur(so[2], "RECONNEXION AUTO", ref yt);
+    recoActive = Case(so[2], "Revenir seul après une fermeture du serveur", ref yt, false);
+    recoMin = Num(so[2], "Attendre avant de revenir (minutes)", ref yt, 1, 120, 15, 1);
+    recoActive.CheckedChanged += (s, e) => { recoMin.Enabled = recoActive.Checked; Sauver(); };
+    recoMin.ValueChanged += (s, e) => Sauver();
+    recoMin.Enabled = false;
+    Aide(so[2], "Au redémarrage de la nuit, deux cas : renvoyé au hub (la boussole ramène sur Fuchsia) ou écran « Connection Lost » (clic sur Reconnect). La ferme s'arrête, puis après ce délai on revient, /home de la ferme, et la ferme repart du début. Le jeu doit rester au premier plan. Fermes et mines seulement (pas la pêche ni l'autoclick).", ref yt);
     Separateur(so[2], "TESTER MON ÉCRAN", ref yt);
     bTester = new BoutonRond { Text = "Tester mon écran", Left = 24, Top = yt, Width = 400, Height = 40, Font = new Font("Segoe UI Semibold", 10f) };
     bTester.Click += (s, e) => { if (bTester.Enabled) TesterEcran(); };
@@ -865,10 +930,62 @@ public class FermeCanne : Form {
     rcRegard.CheckedChanged += (s, e) => Sauver();    Aide(sr[0], "Calibrage : au début de chaque tour, le script ouvre F3 et cale le regard pile sur la direction de l'étage, entre 35 et 40 vers le bas.", ref yr);
     Aide(sr[0], "Dans le jeu : F3 fermé, coordonnées affichées en haut à gauche, au début de la rangée de départ (pastèques : est à l'étage 1, ouest à l'étage 2 ; citrouilles : l'inverse ; rangée impaire : côté petit Z, rangée paire : côté grand Z), hache en main, puis la touche pause (F7 par défaut). Il faut un mur tout le long de chaque couloir.", ref yr);
 
+    // Page Ble : le champ est fixe (X -22 a 61, Z 39 a 149, deux etages) ; le depart se lit sur la position du joueur.
+    pageBle = Page("Réglages du blé");
+    var sb = Sections(pageBle, "Ferme", "Vente", "Sécurité");
+    int yb = 8;
+    blEtage = Num(sb[0], "Étage de départ (1 ou 2)", ref yb, 1, 2, 1, 1);
+    blPassage = Num(sb[0], "Passage de départ (1 à 24)", ref yb, 1, 24, 1, 1);
+    blPlace = new Label { Left = 24, Top = yb, Width = 400, Height = 22, ForeColor = Th.Texte, BackColor = Th.Carte, Font = new Font("Segoe UI Semibold", 9f) };
+    sb[0].Controls.Add(blPlace); yb += 34;
+    MajPlaceBle();
+    foreach (var n in new[] { blEtage, blPassage }) n.ValueChanged += (s, e) => { MajPlaceBle(); MajRepriseChamp(); Sauver(); };
+    RepriseChamp(sb[0], ref yb, out lRepBl, out bRepBl, false);
+    blTours = Num(sb[0], "Tours (0 = à l'infini)", ref yb, 0, 999, 0, 1);
+    blAttente = Num(sb[0], "Attente entre deux tours (s)", ref yb, 0, 3600, 0, 10);
+    blSlotOutil = Num(sb[0], "Slot de l'outil 3x3", ref yb, 1, 9, 1, 1);
+    int ybv = 8;
+    blVente = Case(sb[1], "Vente au dial", ref ybv, false);
+    blSlotDial = Num(sb[1], "Slot du dial", ref ybv, 1, 9, 2, 1);
+    blVenteTous = Num(sb[1], "Vendre tous les ... passages", ref ybv, 1, 24, 2, 1);
+    blSlotDial.Enabled = blVenteTous.Enabled = false;
+    blVente.CheckedChanged += (s, e) => { blSlotDial.Enabled = blVenteTous.Enabled = blVente.Checked && !EnCours(); Sauver(); };
+    Aide(sb[1], "La vente se fait dans le couloir, à l'arrêt, entre deux passages : le script prend le dial, fait un clic gauche, puis reprend l'outil. Un étage a 24 passages : tous les 2 = 12 ventes par étage, tous les 4 = 6.", ref ybv);
+    foreach (var n in new[] { blTours, blAttente, blSlotOutil, blSlotDial, blVenteTous }) n.ValueChanged += (s, e) => Sauver();
+    Aide(sb[0], "Le script part du passage choisi, finit l'étage, monte à l'échelle (blé X 61, carottes X 149, couloir Z 38), fait l'étage 2, tape /home ble ou /home carotte, attend le temps réglé, puis recommence au début (étage 1, passage 1).", ref yb);
+    Aide(sb[0], "Dans le jeu : F3 fermé, coordonnées affichées en haut à gauche, outil 3x3 en main, à l'endroit indiqué ci-dessus (dans le bon couloir, à quelques blocs près, la macro va elle-même sur la ligne), puis la touche pause (F7 par défaut). /sethome ble en X -21, Y -2, Z 38 ; /sethome carotte en X 67, Y -2, Z 38.", ref yb);
+    Securite(sb[2], out blStopTP, out blTPBlocs);
+
+    // Page Nether wart : champ fixe (X 96 a 149, Z -149 a -86, 10 etages tous les 3 blocs, 18 passages), comme le ble sans eau.
+    pageVerrue = Page("Réglages du nether wart");
+    var sv = Sections(pageVerrue, "Ferme", "Vente", "Sécurité");
+    int yv = 8;
+    vrEtage = Num(sv[0], "Étage de départ (1 à 10)", ref yv, 1, 10, 1, 1);
+    vrPassage = Num(sv[0], "Passage de départ (1 à 18)", ref yv, 1, 18, 1, 1);
+    vrPlace = new Label { Left = 24, Top = yv, Width = 400, Height = 22, ForeColor = Th.Texte, BackColor = Th.Carte, Font = new Font("Segoe UI Semibold", 9f) };
+    sv[0].Controls.Add(vrPlace); yv += 34;
+    MajPlaceVerrue();
+    foreach (var n in new[] { vrEtage, vrPassage }) n.ValueChanged += (s, e) => { MajPlaceVerrue(); MajRepriseChamp(); Sauver(); };
+    RepriseChamp(sv[0], ref yv, out lRepVr, out bRepVr, true);
+    vrTours = Num(sv[0], "Tours (0 = à l'infini)", ref yv, 0, 999, 0, 1);
+    vrAttente = Num(sv[0], "Attente entre deux tours (s)", ref yv, 0, 3600, 0, 10);
+    vrSlotOutil = Num(sv[0], "Slot de l'outil 3x3", ref yv, 1, 9, 1, 1);
+    int yvv = 8;
+    vrVente = Case(sv[1], "Vente au dial", ref yvv, false);
+    vrSlotDial = Num(sv[1], "Slot du dial", ref yvv, 1, 9, 2, 1);
+    vrVenteTous = Num(sv[1], "Vendre tous les ... passages", ref yvv, 1, 18, 2, 1);
+    vrSlotDial.Enabled = vrVenteTous.Enabled = false;
+    vrVente.CheckedChanged += (s, e) => { vrSlotDial.Enabled = vrVenteTous.Enabled = vrVente.Checked && !EnCours(); Sauver(); };
+    Aide(sv[1], "La vente se fait dans le couloir, à l'arrêt, entre deux passages : le script prend le dial, fait un clic gauche, puis reprend l'outil. Un étage a 18 passages : tous les 2 = 9 ventes par étage, tous les 3 = 6.", ref yvv);
+    foreach (var n in new[] { vrTours, vrAttente, vrSlotOutil, vrSlotDial, vrVenteTous }) n.ValueChanged += (s, e) => Sauver();
+    Aide(sv[0], "Le script part du passage choisi, finit l'étage, monte à l'échelle (X 96 aux étages impairs, X 149 aux pairs, couloir Z -85), et ainsi de suite jusqu'à l'étage 10, tape /home verrue, attend le temps réglé, puis recommence au début (étage 1, passage 1).", ref yv);
+    Aide(sv[0], "Dans le jeu : F3 fermé, coordonnées affichées en haut à gauche, outil 3x3 en main, à l'endroit indiqué ci-dessus (dans le bon couloir, à quelques blocs près, la macro va elle-même sur la ligne), puis la touche pause (F7 par défaut). /sethome verrue : en X 148, Y -2, Z -85.", ref yv);
+    Securite(sv[2], out vrStopTP, out vrTPBlocs);
+
     // Page Culture : un bouton par ferme, qui ouvre ses reglages. Recliquer sur la tuile Culture revient a ce choix.
     pageCulture = Page("Choisis ta culture");
-    var choix = new[] { new KeyValuePair<string, int>("Canne à sucre", 0), new KeyValuePair<string, int>("Pastèque", 5), new KeyValuePair<string, int>("Citrouille", 6) };
-    var emojis = new[] { "canne", "pasteque", "citrouille" };
+    var choix = new[] { new KeyValuePair<string, int>("Canne à sucre", 0), new KeyValuePair<string, int>("Pastèque", 5), new KeyValuePair<string, int>("Citrouille", 6), new KeyValuePair<string, int>("Blé", 9), new KeyValuePair<string, int>("Nether wart", 10), new KeyValuePair<string, int>("Carotte", 11) };
+    var emojis = new[] { "canne", "pasteque", "citrouille", "ble", "verrue", "carotte" };
     for (int k = 0; k < choix.Length; k++) {
       int cible = choix[k].Value;
       var b = new BoutonRond { Text = choix[k].Key, Emoji = emojis[k], Left = 24, Top = 70 + k * 82, Width = 400, Height = 68, Font = new Font("Segoe UI Semibold", 12f) };
@@ -896,7 +1013,7 @@ public class FermeCanne : Form {
     Aide(smi[1], "Le script s'arrête si tu sors des limites X, ou si tu n'es plus autour de la hauteur du tunnel.", ref yma);
     Securite(smi[2], out miStopTP, out miTPBlocs);
 
-    foreach (var p in new[] { pageCanne, pageClic, pageTheme, pageStats, pagePeche, pageRecolte, pageCulture, pageMine }) Controls.Add(p);
+    foreach (var p in new[] { pageCanne, pageClic, pageTheme, pageStats, pagePeche, pageRecolte, pageCulture, pageMine, pageBle, pageVerrue }) Controls.Add(p);
 
     // ---------- session en direct : la carte principale, avec un halo de la couleur du mode ----------
     var ses = new CarteRonde { Left = 488, Top = 136, Width = 488, Height = 412, Lueur = true, Remplissage = Th.Carte };
@@ -938,6 +1055,10 @@ public class FermeCanne : Form {
     alertes = new BoutonRond { Text = "Alertes", Left = 234, Top = 8, Width = 76, Height = 26, Font = new Font("Segoe UI", 8.5f) };
     alertes.Click += (s, e) => { filtreAlertes = !filtreAlertes; alertes.CouleurBord = filtreAlertes ? Jaune : Color.Empty; alertes.Invalidate(); Reafficher(); };
     cadre.Controls.Add(alertes);
+    var diag = new BoutonRond { Text = "Diagnostics", Left = 132, Top = 8, Width = 96, Height = 26, Font = new Font("Segoe UI", 8.5f) };
+    diag.Click += (s, e) => OuvrirDiagnostics();
+    cadre.Controls.Add(diag);
+    new ToolTip().SetToolTip(diag, "Ouvre le dossier des images et journaux de diagnostic (arrêts, F3 illisible, reconnexion)");
     new ToolTip().SetToolTip(copier, "Copie tout le journal (pour le coller dans un message)");
     new ToolTip().SetToolTip(alertes, "N'afficher que les alertes (lignes rouges et jaunes)");
     journal = new RichTextBox { Left = 20, Top = 40, Width = 450, Height = 106, ReadOnly = true, BorderStyle = BorderStyle.None, BackColor = Th.Carte, ScrollBars = RichTextBoxScrollBars.Vertical,
@@ -961,7 +1082,7 @@ public class FermeCanne : Form {
     Etat("arrêté", Th.Discret);
     Ecrire("Règle les options, clique Démarrer, puis dans le jeu : chat fermé, " + NomPause + ".", Th.Accent);
     Ecrire(NomPause + " = pause / reprise, " + NomArret + " ou le bouton Arrêter = arrêt.", Th.Discret);
-    FormClosing += (s, e) => { Sauver(); if (proc != null && !proc.HasExited) Arreter(); CacherMini(); if (procTuto != null && !procTuto.HasExited) { procTuto.EnableRaisingEvents = false; try { procTuto.Kill(); } catch { } } };
+    FormClosing += (s, e) => { Sauver(); if (recoCompte != null) recoCompte.Stop(); if (procReco != null && !procReco.HasExited) { try { procReco.Kill(); } catch { } RelacherTout(); } if (proc != null && !proc.HasExited) Arreter(); CacherMini(); if (procTuto != null && !procTuto.HasExited) { procTuto.EnableRaisingEvents = false; try { procTuto.Kill(); } catch { } } };
     HandleCreated += (s, e) => Coins();
     if (!ecranVerifie) MontrerTuto();
     Shown += (s, e) => { if (ecranVerifie) ApresOuverture(); };   // le menu s'ouvre d'abord ; la recherche ne le ralentit pas
@@ -996,10 +1117,10 @@ public class FermeCanne : Form {
   }
   // Legendes de la carte Session selon le mode (avant le depart aussi : la peche n'a ni tour ni etage)
   void Legendes(int m) {
-    bool clic = m == 1, peche = m == 4, recolte = m == 5 || m == 6;
+    bool clic = m == 1, peche = m == 4, recolte = m == 5 || m == 6, ble = m == 9 || m == 10 || m == 11;
     cTour.Text = peche ? "POISSONS" : clic ? "BOUTON" : "TOUR";
-    cEtage.Text = peche ? "RATÉS" : clic ? "MODE" : recolte ? "RANGÉE" : "ÉTAGE";
-    cTraversee.Text = peche ? "RÉUSSITE" : clic ? "CLICS" : recolte ? "RANGÉES FAITES" : "TRAVERSÉE";
+    cEtage.Text = peche ? "RATÉS" : clic ? "MODE" : recolte ? "RANGÉE" : ble ? "PASSAGE" : "ÉTAGE";
+    cTraversee.Text = peche ? "RÉUSSITE" : clic ? "CLICS" : recolte ? "RANGÉES FAITES" : ble ? "PASSAGES FAITS" : "TRAVERSÉE";
     cVentes.Text = peche ? "PAR ESPÈCE" : "VENTES";
     cGains.Text = peche ? "GAINS DES PRISES  (ARGENT  ·  XP)" : clic ? "GAINS DE L'AUTOCLICK  (ARGENT  ·  XP)" : "GAINS  (ARGENT EN HAUT DE L'ÉCRAN)";
     // peche : liste des especes en petit sur deux lignes (en gros, elle etait coupee des la 3e espece)
@@ -1199,15 +1320,16 @@ public class FermeCanne : Form {
 
   void Montrer(int i) {
     page = i;
-    pageCanne.Visible = i == 0; pageClic.Visible = i == 1; pageTheme.Visible = i == 2; pageStats.Visible = i == 3; pagePeche.Visible = i == 4; pageRecolte.Visible = i == 5 || i == 6; pageCulture.Visible = i == 7; pageMine.Visible = i == 8;
+    pageCanne.Visible = i == 0; pageClic.Visible = i == 1; pageTheme.Visible = i == 2; pageStats.Visible = i == 3; pagePeche.Visible = i == 4; pageRecolte.Visible = i == 5 || i == 6; pageCulture.Visible = i == 7; pageMine.Visible = i == 8; pageBle.Visible = i == 9 || i == 11; pageVerrue.Visible = i == 10;
     if (i == 5 || i == 6) pageRecolte.Controls[0].Text = i == 6 ? "Réglages des citrouilles" : "Réglages des pastèques";   // meme page, le titre change
-    bool culture = i == 0 || i == 5 || i == 6 || i == 7;                   // la tuile Culture reste allumee sur les pages des fermes
+    if (i == 9 || i == 11) { pageBle.Controls[0].Text = i == 11 ? "Réglages des carottes" : "Réglages du blé"; MajPlaceBle(); MajRepriseChamp(); }   // meme page, le titre et la place changent
+    bool culture = i == 0 || i == 5 || i == 6 || i == 7 || i == 9 || i == 10 || i == 11;   // la tuile Culture reste allumee sur les pages des fermes
     for (int k = 0; k < tuiles.Count; k++) { tuiles[k].Choisie = k == 7 ? culture : k == i; tuiles[k].Invalidate(); }
     // une couleur par mode : tout le menu prend celle du mode choisi (Options et Statistiques gardent la derniere)
-    if (i == 0 || i == 1 || i == 4 || i == 5 || i == 6 || i == 8) dernierMode = i;
+    if (i == 0 || i == 1 || i == 4 || i == 5 || i == 6 || i == 8 || i == 9 || i == 10 || i == 11) dernierMode = i;
     if (Th.ParMode && !(thArc != null && thArc.Checked)) { var c = CouleurMode(EnCours() ? mode : dernierMode); if (c.ToArgb() != Th.Accent.ToArgb()) { Th.Accent = c; AppliquerAccent(); } }
     // autre mode choisi, rien ne tourne : la carte Session prend ses legendes (valeurs de l'ancien mode effacees)
-    if ((i == 0 || i == 1 || i == 4 || i == 5 || i == 6 || i == 8) && i != modeAffiche && !EnCours()) { Legendes(i); ViderSession(); }
+    if ((i == 0 || i == 1 || i == 4 || i == 5 || i == 6 || i == 8 || i == 9 || i == 10 || i == 11) && i != modeAffiche && !EnCours()) { Legendes(i); ViderSession(); }
   }
   void Multiple64(Nombre n) { decimal v = Math.Max(64m, Math.Min(2304m, Math.Round(n.Value / 64m) * 64m)); if (v != n.Value) n.Value = v; }
   void MajCps() {
@@ -1605,7 +1727,21 @@ public class FermeCanne : Form {
     mini.Ventes = "ventes " + ventes + " / " + essais;
     if ((modePeche || modeClic) && prisesLues > 0) mini.Gains = Session.Signe(GainsPrises()) + "  ·  " + Session.Signe(xpPeche) + " xp";
     else mini.Gains = argentDebut.HasValue ? lHeure.Text + "   " + Session.Signe(GainsArgent()) : "gains : -";
+    mini.Position = PositionMini();
     mini.Maj();
+  }
+  // Une ligne : ou en est la ferme, avec les valeurs de la carte Session ("–" tant que le script n'a rien dit)
+  string PositionMini() {
+    if (!EnCours()) return "";
+    string t = lTour.Text.Replace("∞", "").Trim(), e = lEtage.Text, tr = lTraversee.Text;
+    if (modePeche) return "Poissons " + t + "  ·  ratés " + e;
+    if (modeClic) return modeMine ? "" : "Clics " + tr;
+    if (modeBle || modeVerrue) {   // lEtage = "É4 · 7/18"
+      var m = Regex.Match(e, @"É(\d+) · (\S+)");
+      return m.Success ? string.Format("Tour {0}  ·  étage {1}  ·  passage {2}", t, m.Groups[1].Value, m.Groups[2].Value) : "Tour " + t + "  ·  en route";
+    }
+    if (modeRecolte) return "Tour " + t + "  ·  rangée " + e;
+    return "Tour " + t + "  ·  étage " + e + "  ·  traversée " + tr;
   }
 
   // ------------------------------ Reprise ------------------------------
@@ -1622,8 +1758,62 @@ public class FermeCanne : Form {
     departs[n] = pos;
     try { var lignes = new List<string>(); foreach (var kv in departs) lignes.Add(kv.Key + ";" + kv.Value); lignes.Sort(); File.WriteAllLines(FichierDeparts, lignes.ToArray()); } catch { }
   }
+  void OuvrirDiagnostics() {
+    try {
+      string d = Path.Combine(dossier, "diagnostics");
+      Directory.CreateDirectory(d);
+      Process.Start(new ProcessStartInfo("explorer.exe", "\"" + d + "\"") { UseShellExecute = true });
+    } catch (Exception ex) { Ecrire("Impossible d'ouvrir le dossier des diagnostics : " + ex.Message, Rouge); }
+  }
+
+  // ---------- Reprise du ble, des carottes et du nether wart (13/11/2026) ----------
+  // Le script ecrit "passage k/N (etage e, X ..)" au debut de chaque passage et "passages faits : n" a la fin.
+  // Arret pendant un passage -> on le refait ; arret entre deux passages -> le suivant (etage suivant apres le dernier,
+  // etage 1 apres le dernier etage : /home). Un point de reprise par champ (ble, carotte, verrue), retenu dans les reglages.
+  int rpEtage, rpPassage, rpNb; bool rpFini;
+  Dictionary<string, int[]> reprisesChamp = new Dictionary<string, int[]>();
+  Label lRepBl, lRepVr; BoutonRond bRepBl, bRepVr;
+  string CleChamp(int m) { return m == 11 ? "carotte" : m == 10 ? "verrue" : m == 9 ? "ble" : null; }
+  void RepriseChamp(Control parent, ref int y, out Label l, out BoutonRond b, bool verrue) {
+    Separateur(parent, "REPRISE", ref y);
+    l = new Label { Left = 24, Top = y, Width = 400, Height = 22, ForeColor = Th.Discret, BackColor = Th.Carte, Text = "Aucun arrêt enregistré." };
+    parent.Controls.Add(l); y += 28;
+    b = new BoutonRond { Left = 24, Top = y, Width = 400, Height = 42, Font = new Font("Segoe UI Semibold", 10f), Visible = false };
+    b.Click += (s, e) => {
+      if (!((Control)s).Enabled) return;
+      int[] r; if (!reprisesChamp.TryGetValue(CleChamp(verrue ? 10 : page), out r)) return;
+      if (verrue) { vrEtage.Value = r[0]; vrPassage.Value = r[1]; } else { blEtage.Value = r[0]; blPassage.Value = r[1]; }
+    };
+    parent.Controls.Add(b); y += 52;
+  }
+  int RepriseIni(string cle) { int[] r; return reprisesChamp.TryGetValue(cle, out r) ? r[0] * 100 + r[1] : 0; }
+  void CalculerRepriseChamp() {
+    string cle = CleChamp(mode);
+    if (cle == null || rpEtage == 0) return;
+    int e = rpEtage, k = rpPassage, nbEtages = mode == 10 ? 10 : 2;
+    if (rpFini) { k++; if (k > rpNb) { k = 1; e++; if (e > nbEtages) e = 1; } }
+    reprisesChamp[cle] = new[] { e, k };
+    Sauver(); MajRepriseChamp();
+    Ecrire(string.Format("Pour reprendre : étage {0}, passage {1} (bouton Reprendre dans les réglages).", e, k), Th.Accent);
+  }
+  void MajRepriseChamp() {
+    if (lRepBl == null || lRepVr == null) return;
+    foreach (var verrue in new[] { false, true }) {
+      var l = verrue ? lRepVr : lRepBl; var b = verrue ? bRepVr : bRepBl;
+      string cle = verrue ? "verrue" : (page == 11 ? "carotte" : "ble");
+      int[] r;
+      if (!reprisesChamp.TryGetValue(cle, out r)) { l.Text = "Aucun arrêt enregistré."; b.Visible = false; continue; }
+      l.Text = string.Format("Dernier arrêt : reprendre à l'étage {0}, passage {1}.", r[0], r[1]);
+      bool regle = verrue ? (vrEtage.Value == r[0] && vrPassage.Value == r[1]) : (blEtage.Value == r[0] && blPassage.Value == r[1]);
+      b.Visible = true;
+      b.Text = regle ? string.Format("Départ réglé sur l'étage {0}, passage {1}", r[0], r[1]) : string.Format("Reprendre à l'étage {0}, passage {1}", r[0], r[1]);
+      b.Principal = !regle; b.Enabled = !regle && !EnCours(); b.Invalidate();
+    }
+  }
+
   // Fin de session : etage interrompu -> on y repart ; etage fini -> le suivant (en haut de l'echelle) ; tour fini -> etage 1 (/home canne).
   void CalculerReprise() {
+    CalculerRepriseChamp();
     if (mode != 0 || !chronoLance) return;
     reprise = etageEnCours == 0 ? 1 : (etageFini ? etageEnCours % 12 + 1 : etageEnCours);
     Sauver(); MajReprise();
@@ -1636,6 +1826,7 @@ public class FermeCanne : Form {
     return "Départ de cet étage pas encore connu (en haut de l'échelle de l'étage " + (n - 1) + "), regard vers l'" + regardTxt + ".";
   }
   void MajReprise() {
+    MajRepriseChamp();
     if (lReprise == null) return;
     if (reprise <= 0) { lReprise.Text = "Aucun arrêt enregistré."; bReprise.Visible = false; return; }
     lReprise.Text = "Dernier arrêt : reprendre à l'étage " + reprise + ".\n" + OuSePlacer(reprise);
@@ -1666,7 +1857,7 @@ public class FermeCanne : Form {
   void EnregistrerSession() {
     int duree = (int)Ecoule().TotalSeconds;
     if (!chronoLance || duree < 30) return;   // session pas vraiment commencee
-    var s = new Session { Date = debutSession, DureeS = duree, Mode = mode == 6 ? "citrouille" : modeRecolte ? "recolte" : modePeche ? "peche" : modeClic ? "autoclick" : "canne", Tours = toursFinis, Etages = etagesFinis, Clics = clics,
+    var s = new Session { Date = debutSession, DureeS = duree, Mode = mode == 11 ? "carotte" : mode == 10 ? "verrue" : mode == 9 ? "ble" : mode == 6 ? "citrouille" : modeRecolte ? "recolte" : modePeche ? "peche" : modeClic ? "autoclick" : "canne", Tours = toursFinis, Etages = etagesFinis, Clics = clics,
       Ventes = ventes, Essais = essais, ArgentDebut = argentDebut, ArgentFin = argentDernier, ArgentHors = argentHors };
     if (modeClic) { s.ArgentPrises = argentPeche; s.Xp = xpPeche; }
     // details : etage moyen, ventes du 1er coup, echelles ratees, raison de l'arret
@@ -1767,12 +1958,14 @@ public class FermeCanne : Form {
 
   // ------------------------------ Lancement ------------------------------
   void Demarrer() {
-    if (EnCours()) return;
+    if (EnCours() || RecoEnCours()) return;
     if (page == 8) { int dep = miMine.SelectedIndex == 0 ? -140 : 128; if (miXMin.Value > dep || miXMax.Value < dep) { Ecrire("Le départ de cette mine (X " + dep + ") est hors des limites X : corrige-les dans l'onglet Avancé.", Jaune); return; } }
+    if (page == 10 && vrVente.Checked && vrSlotDial.Value == vrSlotOutil.Value) { Ecrire("Le dial et l'outil sont réglés sur le même slot : change le slot du dial dans l'onglet Vente.", Jaune); return; }
+    if ((page == 9 || page == 11) && blVente.Checked && blSlotDial.Value == blSlotOutil.Value) { Ecrire("Le dial et l'outil sont réglés sur le même slot : change le slot du dial dans l'onglet Vente.", Jaune); return; }
     if (page == 4 && pcVente.Checked && pcVenteSlot.Value == pcSlot.Value) { Ecrire("Le dial et la canne sont réglés sur le même slot : change le slot du dial dans l'onglet Vente.", Jaune); return; }
     if (page == 2 || page == 3 || page == 7) { Ecrire("Choisis d'abord une culture, l'Autoclick ou la Pêche avant de démarrer.", Jaune); return; }
     mode = page;
-    string scr = modeRecolte ? ScriptRecolte : modePeche ? ScriptPeche : modeClic ? ScriptClic : Script;
+    string scr = modeVerrue ? ScriptVerrue : modeBle ? ScriptBle : modeRecolte ? ScriptRecolte : modePeche ? ScriptPeche : modeClic ? ScriptClic : Script;
     if (!File.Exists(scr)) { Ecrire("Script introuvable : " + scr, Rouge); return; }
     if (File.Exists(FichierArret)) File.Delete(FichierArret);
     Sauver();
@@ -1781,14 +1974,24 @@ public class FermeCanne : Form {
     premierCoup = 0; essaisDepuis = 0; echellesRatees = 0; raisonArret = null; arretMenu = false;
     EcrireFichierJournal("========== nouvelle session ==========");
     Legendes(mode); ViderSession();
+    kickVu = false; OuvrirLogJeu();
+    rpEtage = 0; rpPassage = 0; rpNb = 0; rpFini = false;
+    if (recoVeille == null) { recoVeille = new Timer { Interval = 2000 }; recoVeille.Tick += (s, e) => VeilleReco(); recoVeille.Start(); }
     if (modeClic) { lTour.Text = modeMine || acBouton.SelectedIndex == 0 ? "Gauche" : "Droit"; lEtage.Text = !modeMine && acMode.SelectedIndex == 0 ? "Clics" : "Tenu"; lTraversee.Text = "0"; }
     else if (modePeche) { lTour.Text = "0"; lEtage.Text = "0"; }
     else if (modeRecolte) { lTour.Text = "1"; lEtage.Text = rcRangees.Value + "/12"; lTraversee.Text = "0"; }
+    else if (modeBle || modeVerrue) { lTour.Text = "1"; lEtage.Text = "–"; lTraversee.Text = "0"; }
     else { lTour.Text = "1"; lEtage.Text = etage.Value + "/12"; }
     poissons = 0; rates = 0; especes.Clear(); couleursEsp.Clear();
     bulleEspeces.SetToolTip(lVentes, null);
     argentPeche = 0; xpPeche = 0; prisesLues = 0;
-    string args = modeRecolte
+    string args = modeVerrue
+      ? string.Format("-NoProfile -ExecutionPolicy Bypass -File \"{0}\" -Tours {1} -AttenteS {2} -SlotOutil {3} -SlotDial {4} -VenteTous {5} -EtageDepart {6} -PassageDepart {7}",
+          ScriptVerrue, (int)vrTours.Value, (int)vrAttente.Value, (int)vrSlotOutil.Value, (int)vrSlotDial.Value, vrVente.Checked ? (int)vrVenteTous.Value : 0, (int)vrEtage.Value, (int)vrPassage.Value)
+      : modeBle
+      ? string.Format("-NoProfile -ExecutionPolicy Bypass -File \"{0}\" -Tours {1} -AttenteS {2} -SlotOutil {3} -SlotDial {4} -VenteTous {5} -EtageDepart {6} -PassageDepart {7}",
+          ScriptBle, (int)blTours.Value, (int)blAttente.Value, (int)blSlotOutil.Value, (int)blSlotDial.Value, blVente.Checked ? (int)blVenteTous.Value : 0, (int)blEtage.Value, (int)blPassage.Value)
+      : modeRecolte
       ? string.Format("-NoProfile -ExecutionPolicy Bypass -File \"{0}\" -RangeeDepart {1} -Tours {2} -CalerRegard {3} -EtageDepart {4}",
           ScriptRecolte, (int)rcRangees.Value, (int)rcTours.Value, rcRegard.Checked ? 1 : 0, (int)rcEtage.Value)
       : modePeche
@@ -1804,18 +2007,23 @@ public class FermeCanne : Form {
           Script, etage.Value, venteActive.Checked ? (int)seuil.Value : 0, (int)venteMs.Value, new[] { 2, 25, 3 }[pas.SelectedIndex], (int)marge.Value, regard.Checked ? "1" : "0", (int)tours.Value);
     args += string.Format(" -TouchePause {0} -ToucheArret {1} -RepondreVerif {2}", tPause.Vk, tArret.Vk, verifActive.Checked ? 1 : 0);
     if (mode == 6) args += " -Culture citrouille";
+    if (mode == 11) args += " -XMin 66 -HomeRetour carotte -NomCulture carotte";   // carottes : le champ du ble decale de +88 en X (depart X 67 Y -2 Z 38)
     if (mode == 0) args += " -Sons " + (sonsActive.Checked ? 1 : 0);
     if (mode == 0) args += " -VoteSlots " + (int)voteSlots.Value;
     if (mode == 0 && antiLag.Checked) args += " -AntiLag 1 -AntiLagS " + (int)antiLagS.Value;
     if (mode == 1) args += " -StopTP " + (acStopTP.Checked ? 1 : 0) + " -TPBlocs " + (int)acTPBlocs.Value + " -VoteSlots " + (int)acVoteSlots.Value;
     if (modePeche && pcVente.Checked) args += " -VenteMin " + (int)pcVenteMin.Value + " -SlotDial " + (int)pcVenteSlot.Value;
-    var stopTP = mode == 0 ? cnStopTP : mode == 4 ? pcStopTP : modeRecolte ? rcStopTP : modeMine ? miStopTP : null;
-    var blocsTP = mode == 0 ? cnTPBlocs : mode == 4 ? pcTPBlocs : modeMine ? miTPBlocs : rcTPBlocs;
+    var stopTP = mode == 0 ? cnStopTP : mode == 4 ? pcStopTP : modeRecolte ? rcStopTP : modeMine ? miStopTP : modeBle ? blStopTP : modeVerrue ? vrStopTP : null;
+    var blocsTP = mode == 0 ? cnTPBlocs : mode == 4 ? pcTPBlocs : modeMine ? miTPBlocs : modeBle ? blTPBlocs : modeVerrue ? vrTPBlocs : rcTPBlocs;
     if (stopTP != null && stopTP.Checked) args += " -StopTP 1 -TPBlocs " + (int)blocsTP.Value;
     if (mode == 1 || modePeche) args += " -SecondPlan " + ((mode == 1 ? acSecondPlan.Checked : pcSecondPlan.Checked) ? 1 : 0);
+    // relance apres une reconnexion auto : on est au /home de la ferme, donc depart du debut, sans attendre F7
+    bool auto = departAuto; departAuto = false;
+    if (auto) args = Regex.Replace(args, @"-(EtageDepart|PassageDepart|RangeeDepart) \d+", "-$1 1");
     var psi = new ProcessStartInfo("powershell.exe", args) {
       UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
       StandardOutputEncoding = Encoding.GetEncoding(850), StandardErrorEncoding = Encoding.GetEncoding(850), WorkingDirectory = dossier };
+    if (auto) { psi.EnvironmentVariables["MACROS_DEPART_AUTO"] = "1"; Ecrire("Relance automatique de la ferme depuis le début (/home fait).", Vert); }
     proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
     proc.OutputDataReceived += (s, e) => { if (e.Data != null) BeginInvoke((Action)(() => Ligne(e.Data, false))); };
     proc.ErrorDataReceived += (s, e) => { if (e.Data != null) BeginInvoke((Action)(() => Ligne(e.Data, true))); };
@@ -1824,7 +2032,9 @@ public class FermeCanne : Form {
     demarrer.Enabled = false; arreter.Enabled = true; ActiverReglages(false);
     Etat("attente de " + NomPause + " dans le jeu", Jaune);
     if (miniActive.Checked) MontrerMini();
-    if (modeRecolte) Ecrire(mode == 6 ? "Lancement des citrouilles." : "Lancement des pasteques.", Th.Texte);
+    if (modeVerrue) Ecrire("Lancement du nether wart.", Th.Texte);
+    else if (modeBle) Ecrire(mode == 11 ? "Lancement des carottes." : "Lancement du ble.", Th.Texte);
+    else if (modeRecolte) Ecrire(mode == 6 ? "Lancement des citrouilles." : "Lancement des pasteques.", Th.Texte);
     else if (modePeche) Ecrire("Lancement de la peche.", Th.Texte);
     else if (modeMine) Ecrire("Lancement de la mine " + (miMine.SelectedIndex + 1) + ".", Th.Texte);
     else if (modeClic) Ecrire("Lancement de l'autoclick.", Th.Texte);
@@ -1841,7 +2051,13 @@ public class FermeCanne : Form {
     else if ((m = Regex.Match(l, @"^clics : (\d+)")).Success) { lTraversee.Text = m.Groups[1].Value; clics = int.Parse(m.Groups[1].Value); c = Th.Discret; }
     else if (l.StartsWith("Autoclick lance") || l.StartsWith("Mine lancee") || l.StartsWith("Peche lancee") || l.StartsWith("Recolte lancee")) { ChronoMarche(); Etat("en cours", Vert); c = Vert; }
     else if ((m = Regex.Match(l, @"^rangee (\d+)/(\d+)")).Success) { lEtage.Text = m.Groups[1].Value + "/" + m.Groups[2].Value; c = Color.FromArgb(110, 110, 122); }
-    else if ((m = Regex.Match(l, @"^rangees faites : (\d+)")).Success) { lTraversee.Text = m.Groups[1].Value; return; }
+    else if ((m = Regex.Match(l, @"^rangees faites : (\d+)")).Success) { lTraversee.Text = m.Groups[1].Value; MajMini(); return; }
+    else if ((m = Regex.Match(l, @"^passage (\d+)/(\d+) \(etage (\d+)")).Success) {
+      lEtage.Text = "É" + m.Groups[3].Value + " · " + m.Groups[1].Value + "/" + m.Groups[2].Value; c = Color.FromArgb(110, 110, 122);
+      rpPassage = int.Parse(m.Groups[1].Value); rpNb = int.Parse(m.Groups[2].Value); rpEtage = int.Parse(m.Groups[3].Value); rpFini = false;   // pour la reprise
+    }
+    else if ((m = Regex.Match(l, @"^passages faits : (\d+)")).Success) { lTraversee.Text = m.Groups[1].Value; rpFini = true; MajMini(); return; }
+    else if ((m = Regex.Match(l, @"^vente au dial \((\d+)")).Success) { ventes = int.Parse(m.Groups[1].Value); lVentes.Text = ventes.ToString(); c = Violet; }
     else if ((m = Regex.Match(l, @"^recolte : tour (\d+) fini")).Success) { toursFinis = int.Parse(m.Groups[1].Value); lTour.Text = (toursFinis + 1).ToString(); c = Vert; }
     else if (l.StartsWith("Recolte arretee")) { raisonArret = l; c = Rouge; }
     else if (l.StartsWith("Regard illisible")) c = Jaune;
@@ -1890,9 +2106,12 @@ public class FermeCanne : Form {
     else if (l.StartsWith("Dans le jeu") || l.StartsWith("Reviens") || l.StartsWith("Autoclick :")) c = Th.Accent;
     if (c == Rouge && Regex.IsMatch(l, "arret|ARRET")) raisonArret = l.Trim();   // pour les statistiques : pourquoi la session s'est arretee
     Ecrire(l.Trim(), c);
+    MajMini();   // mini-fenetre a jour tout de suite (etage, traversee)
   }
 
   void Arreter() {
+    if (recoCompte != null && recoCompte.Enabled) { recoCompte.Stop(); Ecrire("Reconnexion auto annulée.", Jaune); FinReco(); return; }
+    if (procReco != null && !procReco.HasExited) { File.WriteAllText(FichierArret, "arret"); Ecrire("Arret de la reconnexion demande...", Jaune); arreter.Enabled = false; return; }
     if (!EnCours()) return;
     arretMenu = true;
     File.WriteAllText(FichierArret, "arret");
@@ -1924,14 +2143,119 @@ public class FermeCanne : Form {
     CalculerReprise();
     MajReprise();
     CacherMini();
+    // la ferme a pu s'arreter seule (position incoherente au hub) avant que la veille ait lu le journal du jeu
+    if (!kickVu && !arretMenu && recoActive.Checked && HomeReco(mode) != null) { int ev = KickDansLog(); if (ev > 0) { kickVu = true; modeReco = mode; recoDeco = ev == 2; Ecrire(ev == 2 ? "Connexion perdue (écran Connection Lost)." : "Serveur fermé (renvoyé au hub).", Jaune); } }
+    if (kickVu && recoActive.Checked) { kickVu = false; recoEssais = 0; AttendreReco((double)recoMin.Value); }
+  }
+
+  // ------------------------------ Reconnexion auto ------------------------------
+  // 13/11/2026 : au redemarrage de 5 h, le jeu reste connecte et le serveur renvoie au hub ("You were kicked from
+  // island-... : Server closed" dans le journal du jeu). Pendant que la ferme tourne, le menu lit ce journal ; s'il voit
+  // ce message : arret de la ferme, attente reglable, reconnexion.ps1 (boussole -> Fuchsia Village -> /home de la ferme),
+  // puis la ferme est relancee du debut sans attendre F7. 3 essais espaces de 5 min si le serveur n'est pas encore pret.
+  // 14/11/2026 : autre cas, le jeu est carrement deconnecte ("Client disconnected with reason: Disconnected", ecran
+  // "Connection Lost" avec le bouton "Reconnect") : reconnexion.ps1 -Deconnecte clique sur Reconnect au lieu de la boussole.
+  Timer recoVeille, recoCompte; string logJeu; long logPos; bool kickVu, departAuto, recoDeco; int modeReco = -1, recoEssais; DateTime recoFin; Process procReco;
+  static readonly Regex KickServeur = new Regex(@"You were kicked from \S+: Server closed");
+  static readonly Regex DecoClient = new Regex(@"Client disconnected with reason");
+  string HomeReco(int m) {
+    switch (m) {
+      case 0: return "canne"; case 5: return "pasteque"; case 6: return "citrouille";
+      case 8: return "mine" + (miMine.SelectedIndex + 1); case 9: return "ble"; case 10: return "verrue"; case 11: return "carotte";
+      default: return null;   // peche et autoclick : pas de /home de depart
+    }
+  }
+  bool RecoEnCours() { return (recoCompte != null && recoCompte.Enabled) || (procReco != null && !procReco.HasExited); }
+  // journal du jeu le plus recent (Lunar : profils\<version>\logs\latest.log), lu a partir de sa fin actuelle
+  void OuvrirLogJeu() {
+    logJeu = null; logPos = 0;
+    try {
+      var racine = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".lunarclient", "profiles");
+      FileInfo plus = null;
+      foreach (var d in Directory.GetDirectories(racine)) {
+        var f = new FileInfo(Path.Combine(d, "logs", "latest.log"));
+        if (f.Exists && (plus == null || f.LastWriteTime > plus.LastWriteTime)) plus = f;
+      }
+      if (plus != null) { logJeu = plus.FullName; logPos = plus.Length; }
+    } catch { }
+  }
+  // nouvelles lignes completes du journal du jeu : 0 rien, 1 serveur ferme (renvoye au hub), 2 connexion perdue
+  int KickDansLog() {
+    if (logJeu == null) return 0;
+    try {
+      using (var fs = new FileStream(logJeu, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete)) {
+        if (fs.Length < logPos) logPos = 0;            // jeu relance : nouveau fichier
+        if (fs.Length == logPos) return 0;
+        fs.Seek(logPos, SeekOrigin.Begin);
+        var buf = new byte[fs.Length - logPos]; int n = fs.Read(buf, 0, buf.Length);
+        int fin = Array.LastIndexOf(buf, (byte)10, n - 1);
+        if (fin < 0) return 0;                          // ligne pas encore finie : relue au prochain passage
+        logPos += fin + 1;
+        string t = Encoding.UTF8.GetString(buf, 0, fin + 1);
+        return DecoClient.IsMatch(t) ? 2 : KickServeur.IsMatch(t) ? 1 : 0;
+      }
+    } catch { return 0; }
+  }
+  void VeilleReco() {
+    if (!EnCours() || kickVu || !recoActive.Checked || HomeReco(mode) == null) return;
+    int ev = KickDansLog();
+    if (ev == 0) return;
+    kickVu = true; modeReco = mode; recoDeco = ev == 2;
+    Ecrire(string.Format("{0} : arrêt de la ferme, retour dans {1} min.", recoDeco ? "Connexion perdue (écran Connection Lost)" : "Serveur fermé (renvoyé au hub)", recoMin.Value), Jaune);
+    Arreter();
+  }
+  void AttendreReco(double minutes) {
+    recoFin = DateTime.Now.AddMinutes(minutes);
+    if (recoCompte == null) { recoCompte = new Timer { Interval = 1000 }; recoCompte.Tick += (s, e) => TicReco(); }
+    recoCompte.Start();
+    demarrer.Enabled = false; arreter.Enabled = true;
+    Ecrire(string.Format("Reconnexion auto à {0:HH:mm} (Arrêter pour l'annuler).", recoFin), Jaune);
+    TicReco();
+  }
+  void TicReco() {
+    var r = recoFin - DateTime.Now;
+    if (r.TotalSeconds > 0) { Etat(string.Format("reconnexion dans {0}:{1:00}", (int)r.TotalMinutes, r.Seconds), Jaune); return; }
+    recoCompte.Stop();
+    LancerReco();
+  }
+  void LancerReco() {
+    string home = HomeReco(modeReco), scr = Path.Combine(dossier, "reconnexion.ps1");
+    if (home == null || !File.Exists(scr)) { Ecrire("Reconnexion impossible : " + (home == null ? "pas prévue pour ce mode." : "reconnexion.ps1 introuvable."), Rouge); FinReco(); return; }
+    if (File.Exists(FichierArret)) { try { File.Delete(FichierArret); } catch { } }
+    Etat("reconnexion en cours", Jaune);
+    var psi = new ProcessStartInfo("powershell.exe", string.Format("-NoProfile -ExecutionPolicy Bypass -File \"{0}\" -NomHome {1} -TouchePause {2} -ToucheArret {3}{4}", scr, home, tPause.Vk, tArret.Vk, recoDeco ? " -Deconnecte" : "")) {
+      UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
+      StandardOutputEncoding = Encoding.GetEncoding(850), StandardErrorEncoding = Encoding.GetEncoding(850), WorkingDirectory = dossier };
+    var p = new Process { StartInfo = psi, EnableRaisingEvents = true };
+    p.OutputDataReceived += (s, e) => { if (e.Data != null) BeginInvoke((Action)(() => Ligne(e.Data, false))); };
+    p.ErrorDataReceived += (s, e) => { if (e.Data != null) BeginInvoke((Action)(() => Ligne(e.Data, true))); };
+    p.Exited += (s, e) => { int code = -1; try { code = p.ExitCode; } catch { } BeginInvoke((Action)(() => RecoTerminee(code))); };
+    procReco = p;
+    p.Start(); p.BeginOutputReadLine(); p.BeginErrorReadLine();
+  }
+  void RecoTerminee(int code) {
+    if (File.Exists(FichierArret)) { try { File.Delete(FichierArret); } catch { } }
+    if (code == 0) { recoEssais = 0; departAuto = true; arreter.Enabled = false; Montrer(modeReco); Demarrer(); departAuto = false; if (!EnCours()) FinReco(); return; }
+    if (code == 1 && ++recoEssais < 3) { Ecrire(string.Format("Nouvel essai de reconnexion dans 5 min ({0}/3).", recoEssais + 1), Jaune); AttendreReco(5); return; }
+    Ecrire(code == 1 ? "Reconnexion abandonnée après 3 essais : reviens à la main." : "Reconnexion abandonnée.", Rouge);
+    FinReco();
+  }
+  void FinReco() {
+    if (recoCompte != null) recoCompte.Stop();
+    Etat("arrêté", Th.Discret);
+    demarrer.Enabled = true; arreter.Enabled = false;
   }
   void ActiverReglages(bool on) {
     foreach (Control c in new Control[] { etage, tours, venteActive, seuil, venteMs, marge, regard, sonsActive, pas, acBouton, acMode, acIntervalle, acDuree, acClicsMax, acVente, acSeuil, acVenteMs, acSlot, acVoteSlots, acStopTP, acTPBlocs, tPause, tArret, verifActive }) c.Enabled = on;
     // pendant que ca tourne : pas de changement de mode, mais Options et Statistiques restent visibles
     // pendant qu'une culture tourne, la tuile Culture reste active pour revoir ses reglages ; les boutons des fermes sont grises
-    for (int k = 0; k < tuiles.Count; k++) tuiles[k].Enabled = on || k == mode || k == 2 || k == 3 || (k == 7 && (mode == 0 || mode == 5 || mode == 6));
+    for (int k = 0; k < tuiles.Count; k++) tuiles[k].Enabled = on || k == mode || k == 2 || k == 3 || (k == 7 && (mode == 0 || mode == 5 || mode == 6 || mode == 9 || mode == 10 || mode == 11));
     foreach (var b in boutonsCulture) b.Enabled = on;
-    foreach (Control c in new Control[] { miMine, miStopTP, miAttente, miTours, miXMin, miXMax, miY, pcAnticip, pcTol, pcAttente, pcRelance, pcMax, pcSlot, pcSecondPlan, acSecondPlan, cnStopTP, rcStopTP, pcStopTP, pcVente, antiLag, antiLagS, voteSlots, rcEtage, rcRangees, rcTours, rcRegard }) c.Enabled = on;
+    foreach (Control c in new Control[] { miMine, miStopTP, miAttente, miTours, miXMin, miXMax, miY, pcAnticip, pcTol, pcAttente, pcRelance, pcMax, pcSlot, pcSecondPlan, acSecondPlan, cnStopTP, rcStopTP, pcStopTP, pcVente, antiLag, antiLagS, voteSlots, rcEtage, rcRangees, rcTours, rcRegard, blTours, blAttente, blStopTP, blSlotOutil, blVente, blEtage, blPassage, vrTours, vrAttente, vrStopTP, vrSlotOutil, vrVente, vrEtage, vrPassage }) c.Enabled = on;
+    blTPBlocs.Enabled = on && blStopTP.Checked;
+    blSlotDial.Enabled = blVenteTous.Enabled = on && blVente.Checked;
+    vrTPBlocs.Enabled = on && vrStopTP.Checked;
+    vrSlotDial.Enabled = vrVenteTous.Enabled = on && vrVente.Checked;
     if (on) { seuil.Enabled = venteMs.Enabled = voteSlots.Enabled = venteActive.Checked; MajCps(); miTPBlocs.Enabled = miStopTP.Checked; acTPBlocs.Enabled = acStopTP.Checked; cnTPBlocs.Enabled = cnStopTP.Checked; rcTPBlocs.Enabled = rcStopTP.Checked; pcTPBlocs.Enabled = pcStopTP.Checked; pcVenteMin.Enabled = pcVenteSlot.Enabled = pcVente.Checked; antiLagS.Enabled = antiLag.Checked; }
     else miTPBlocs.Enabled = cnTPBlocs.Enabled = rcTPBlocs.Enabled = pcTPBlocs.Enabled = pcVenteMin.Enabled = pcVenteSlot.Enabled = false;
     MajReprise();
@@ -1952,8 +2276,12 @@ public class FermeCanne : Form {
         "rcRangeeDepart=" + rcRangees.Value, "rcTours=" + rcTours.Value, "rcRegard=" + (rcRegard.Checked ? 1 : 0), "rcEtage=" + rcEtage.Value,
         "versionVue=" + versionVue, "miMine=" + miMine.SelectedIndex, "miStopTP=" + (miStopTP.Checked ? 1 : 0), "miTPBlocs=" + miTPBlocs.Value, "miAttente=" + miAttente.Value, "miTours=" + miTours.Value, "miXMin=" + miXMin.Value, "miXMax=" + miXMax.Value, "miY=" + miY.Value,
         "pcVente=" + (pcVente.Checked ? 1 : 0), "pcVenteMin=" + pcVenteMin.Value, "pcVenteSlot=" + pcVenteSlot.Value,
+        "blTours=" + blTours.Value, "blAttente=" + blAttente.Value, "blStopTP=" + (blStopTP.Checked ? 1 : 0), "blTPBlocs=" + blTPBlocs.Value, "blSlotOutil=" + blSlotOutil.Value, "blEtage=" + blEtage.Value, "blPassage=" + blPassage.Value, "blVente=" + (blVente.Checked ? 1 : 0), "blSlotDial=" + blSlotDial.Value, "blVenteTous=" + blVenteTous.Value,
+        "vrTours=" + vrTours.Value, "vrAttente=" + vrAttente.Value, "vrStopTP=" + (vrStopTP.Checked ? 1 : 0), "vrTPBlocs=" + vrTPBlocs.Value, "vrSlotOutil=" + vrSlotOutil.Value, "vrEtage=" + vrEtage.Value, "vrPassage=" + vrPassage.Value, "vrVente=" + (vrVente.Checked ? 1 : 0), "vrSlotDial=" + vrSlotDial.Value, "vrVenteTous=" + vrVenteTous.Value,
         "cnStopTP=" + (cnStopTP.Checked ? 1 : 0), "cnTPBlocs=" + cnTPBlocs.Value, "rcStopTP=" + (rcStopTP.Checked ? 1 : 0), "rcTPBlocs=" + rcTPBlocs.Value, "pcStopTP=" + (pcStopTP.Checked ? 1 : 0), "pcTPBlocs=" + pcTPBlocs.Value,
         "ecranVerifie=" + (ecranVerifie ? 1 : 0), "onglet=" + page, "stats=" + statsFiltre.SelectedIndex, "reprise=" + reprise, "pause=" + tPause.Vk, "arret=" + tArret.Vk, "mini=" + (miniActive.Checked ? 1 : 0), "verif=" + (verifActive.Checked ? 1 : 0),
+        "reco=" + (recoActive.Checked ? 1 : 0), "recoMin=" + recoMin.Value,
+        "rpBle=" + RepriseIni("ble"), "rpCarotte=" + RepriseIni("carotte"), "rpVerrue=" + RepriseIni("verrue"),
         "miniX=" + (miniPos.HasValue ? miniPos.Value.X : -99999), "miniY=" + (miniPos.HasValue ? miniPos.Value.Y : -99999),
         "parMode=" + (Th.ParMode ? 1 : 0), "arc=" + (thArc.Checked ? 1 : 0), "contour=" + (thContour.Checked ? 1 : 0), "accent=" + string.Format("{0:X2}{1:X2}{2:X2}", AccentRetenu.R, AccentRetenu.G, AccentRetenu.B) });
     } catch { }
@@ -1984,6 +2312,30 @@ public class FermeCanne : Form {
       if (d.TryGetValue("cnTPBlocs", out x)) cnTPBlocs.Value = Math.Max(1, Math.Min(10, x));
       if (d.TryGetValue("rcStopTP", out x)) rcStopTP.Checked = x == 1;
       if (d.TryGetValue("rcTPBlocs", out x)) rcTPBlocs.Value = Math.Max(1, Math.Min(10, x));
+      if (d.TryGetValue("blTours", out x)) blTours.Value = Math.Max(0, Math.Min(999, x));
+      if (d.TryGetValue("blAttente", out x)) blAttente.Value = Math.Max(0, Math.Min(3600, x));
+      if (d.TryGetValue("blStopTP", out x)) blStopTP.Checked = x == 1;
+      if (d.TryGetValue("blTPBlocs", out x)) blTPBlocs.Value = Math.Max(1, Math.Min(10, x));
+      blTPBlocs.Enabled = blStopTP.Checked;
+      if (d.TryGetValue("blSlotOutil", out x)) blSlotOutil.Value = Math.Max(1, Math.Min(9, x));
+      if (d.TryGetValue("blEtage", out x)) blEtage.Value = Math.Max(1, Math.Min(2, x));
+      if (d.TryGetValue("blPassage", out x)) blPassage.Value = Math.Max(1, Math.Min(24, x));
+      if (d.TryGetValue("blVente", out x)) blVente.Checked = x == 1;
+      if (d.TryGetValue("blSlotDial", out x)) blSlotDial.Value = Math.Max(1, Math.Min(9, x));
+      if (d.TryGetValue("blVenteTous", out x)) blVenteTous.Value = Math.Max(1, Math.Min(24, x));
+      blSlotDial.Enabled = blVenteTous.Enabled = blVente.Checked;
+      if (d.TryGetValue("vrTours", out x)) vrTours.Value = Math.Max(0, Math.Min(999, x));
+      if (d.TryGetValue("vrAttente", out x)) vrAttente.Value = Math.Max(0, Math.Min(3600, x));
+      if (d.TryGetValue("vrStopTP", out x)) vrStopTP.Checked = x == 1;
+      if (d.TryGetValue("vrTPBlocs", out x)) vrTPBlocs.Value = Math.Max(1, Math.Min(10, x));
+      vrTPBlocs.Enabled = vrStopTP.Checked;
+      if (d.TryGetValue("vrSlotOutil", out x)) vrSlotOutil.Value = Math.Max(1, Math.Min(9, x));
+      if (d.TryGetValue("vrEtage", out x)) vrEtage.Value = Math.Max(1, Math.Min(10, x));
+      if (d.TryGetValue("vrPassage", out x)) vrPassage.Value = Math.Max(1, Math.Min(18, x));
+      if (d.TryGetValue("vrVente", out x)) vrVente.Checked = x == 1;
+      if (d.TryGetValue("vrSlotDial", out x)) vrSlotDial.Value = Math.Max(1, Math.Min(9, x));
+      if (d.TryGetValue("vrVenteTous", out x)) vrVenteTous.Value = Math.Max(1, Math.Min(18, x));
+      vrSlotDial.Enabled = vrVenteTous.Enabled = vrVente.Checked;
       if (d.TryGetValue("pcStopTP", out x)) pcStopTP.Checked = x == 1;
       if (d.TryGetValue("pcTPBlocs", out x)) pcTPBlocs.Value = Math.Max(1, Math.Min(10, x));
       if (d.TryGetValue("etage", out x)) etage.Value = Math.Max(1, Math.Min(12, x));
@@ -2016,7 +2368,7 @@ public class FermeCanne : Form {
       if (d.TryGetValue("rcTours", out x)) rcTours.Value = Math.Max(0, Math.Min(999, x));
       if (d.TryGetValue("rcRegard", out x)) rcRegard.Checked = x == 1;
       if (d.TryGetValue("rcEtage", out x)) rcEtage.Value = Math.Max(1, Math.Min(2, x));
-      if (d.TryGetValue("onglet", out x)) page = (x >= 0 && x <= 8) ? x : 0;
+      if (d.TryGetValue("onglet", out x)) page = (x >= 0 && x <= 11) ? x : 0;
       if (d.TryGetValue("stats", out x) && x >= 0 && x <= 3) statsFiltre.SelectedIndex = x;
       if (d.TryGetValue("pcAnticip2", out x)) pcAnticip.Value = Math.Max(0, Math.Min(500, x));
       if (d.TryGetValue("pcTol2", out x)) pcTol.Value = Math.Max(0, Math.Min(60, x));
@@ -2031,6 +2383,11 @@ public class FermeCanne : Form {
       if (d.TryGetValue("arret", out x) && x > 0 && x < 256 && x != tPause.Vk) tArret.Vk = x;
       if (d.TryGetValue("mini", out x)) miniActive.Checked = x == 1;
       if (d.TryGetValue("verif", out x)) verifActive.Checked = x == 1;
+      if (d.TryGetValue("reco", out x)) recoActive.Checked = x == 1;
+      if (d.TryGetValue("recoMin", out x)) recoMin.Value = Math.Max(1, Math.Min(120, x));
+      recoMin.Enabled = recoActive.Checked;
+      foreach (var kv in new[] { new[] { "rpBle", "ble", "2", "24" }, new[] { "rpCarotte", "carotte", "2", "24" }, new[] { "rpVerrue", "verrue", "10", "18" } })
+        if (d.TryGetValue(kv[0], out x) && x > 0) { int e = x / 100, k = x % 100; if (e >= 1 && e <= int.Parse(kv[2]) && k >= 1 && k <= int.Parse(kv[3])) reprisesChamp[kv[1]] = new[] { e, k }; }
       thParMode.Checked = Th.ParMode;
       if (d.TryGetValue("arc", out x)) thArc.Checked = x == 1;
       if (d.TryGetValue("contour", out x)) thContour.Checked = x == 1;

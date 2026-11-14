@@ -72,7 +72,10 @@ $script:FichierArret = Join-Path $Dossier 'arret.flag'
 if (Test-Path $script:FichierArret) { Remove-Item $script:FichierArret -Force }
 function Arret-Demande { return ([Entree]::Appuyee($ToucheArret) -or (Test-Path $script:FichierArret)) }
 function Attendre-Relache($vk) { while ([Entree]::Appuyee($vk)) { Start-Sleep -Milliseconds 30 } }
+# Relance par le menu apres une reconnexion auto (variable MACROS_DEPART_AUTO) : la premiere attente de F7 est sautee.
+$script:DepartAuto = $env:MACROS_DEPART_AUTO -eq '1'
 function Attendre-F7 {
+  if ($script:DepartAuto) { $script:DepartAuto = $false; Write-Host "Depart automatique apres la reconnexion."; return $true }
   Attendre-Relache $TouchePause
   while (-not [Entree]::Appuyee($TouchePause)) { if (Arret-Demande) { $script:Arret = $true; return $false }; Start-Sleep -Milliseconds 30 }
   Attendre-Relache $TouchePause
@@ -405,21 +408,29 @@ function Centrer-Colonne($k) {
   Basculer-F3
   Start-Sleep -Milliseconds 400
   try {
-    $duree = 40; $avant = $null
-    for ($n = 0; $n -lt 25; $n++) {
+    $duree = 40; $avant = $null; $resteAvant = $null; $trace = New-Object System.Collections.Generic.List[string]
+    $ecrire = { param($fin) Write-Host ("Recentrage rangee {0} ({1}) : cible {2:N2}, lu {3}" -f ($k + 1), $fin, $cible, ($trace -join ' ')) }
+    for ($n = 0; $n -le 25; $n++) {
       if (Tic) { if ($script:Arret) { return $false } }
       $x = Lire-XYZ
-      if ($null -eq $x) { Stop-Recolte "position precise illisible dans F3 pendant le recentrage"; return $false }
+      if ($null -eq $x) { & $ecrire 'F3 illisible'; Stop-Recolte "position precise illisible dans F3 pendant le recentrage"; return $false }
       $pos = $x[$script:AxePerp]
       $reste = ($cible - $pos) * $script:SensPerp
-      if ([Math]::Abs($reste) -le 0.15) { return $true }
+      $trace.Add(("{0:N2}" -f $pos))
+      if ([Math]::Abs($reste) -le 0.15) { if ($n -gt 3) { & $ecrire 'reussi' }; return $true }
+      if ($n -eq 25) { break }   # derniere lecture, apres le dernier appui
       if ($null -ne $avant -and [Math]::Abs($pos - $avant) -lt 0.02) { $duree = [Math]::Min(150, $duree + 20) }   # n'a pas bouge : appui plus long
-      $avant = $pos
+      # 14/11/2026 : passe de l'autre cote du centre -> appui plus court (sinon il peut tourner autour sans jamais y tomber)
+      elseif ($null -ne $resteAvant -and [Math]::Sign($reste) -ne [Math]::Sign($resteAvant)) { $duree = [Math]::Max(20, [int]($duree / 2)) }
+      $avant = $pos; $resteAvant = $reste
       Poser @($(if ($reste -gt 0) { $T.avant } else { $T.arriere })) $false
       Start-Sleep -Milliseconds $duree
       Poser @() $false
       Start-Sleep -Milliseconds 350
     }
+    # 14/11/2026 (rangee 8 des pasteques) : a moins de 0,3 bloc du centre, on repart plutot que de couper la recolte
+    if ([Math]::Abs($reste) -le 0.3) { & $ecrire 'presque centre, on repart'; return $true }
+    & $ecrire 'echec'
     Stop-Recolte ("recentrage impossible sur la rangee {0}" -f ($k + 1))
     return $false
   } finally {
@@ -537,6 +548,7 @@ function Retour-Home($base) {
   if (-not (Taper-Commande "home $HomeRetour")) { return $false }
   Attendre-Stable 2500
   if ($script:Arret) { return $false }
+  Couper-Vol
   $p = Lire-Coord
   if ($null -eq $p) { Start-Sleep -Milliseconds 500; $p = Lire-Coord }
   if ($null -eq $p) { Stop-Recolte "coordonnees illisibles apres /home"; return $false }
@@ -585,6 +597,7 @@ function Recolte {
   }
   Start-Sleep -Milliseconds 300
   Detecter-Interface
+  Couper-Vol
   if ($EtageDepart -eq 2) {
     $script:Sens = $script:Sens2
     Caler-Regard $script:Cap2
